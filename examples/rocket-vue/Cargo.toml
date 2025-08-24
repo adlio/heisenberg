@@ -1,0 +1,9 @@
+[package]
+name = "rocket-vue"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+heisenberg = { path = "../..", features = ["rocket"] }
+rocket = { version = "0.5", features = ["json"] }
+serde_json = "1.0"

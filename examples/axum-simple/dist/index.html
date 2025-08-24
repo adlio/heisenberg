@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heisenberg Axum Example</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 10px 0; cursor: pointer; }
+        #response { margin-top: 20px; padding: 20px; background: #f5f5f5; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Heisenberg Axum Example</h1>
+        <p>This is a simple frontend served by Heisenberg in development mode (proxy) or production mode (embedded).</p>
+        
+        <button onclick="callApi()">Call Rust API</button>
+        
+        <div id="response"></div>
+    </div>
+
+    <script>
+        async function callApi() {
+            try {
+                const response = await fetch('/api/hello');
+                const html = await response.text();
+                document.getElementById('response').innerHTML = html;
+            } catch (error) {
+                document.getElementById('response').innerHTML = '<p>Error calling API: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>

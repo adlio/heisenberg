@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heisenberg Multi-SPA Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        h1 { 
+            color: #2d3436; 
+            margin-bottom: 20px; 
+            text-align: center;
+            font-size: 2.5em;
+        }
+        .subtitle {
+            text-align: center;
+            color: #636e72;
+            margin-bottom: 40px;
+            font-size: 1.2em;
+        }
+        .spa-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+        .spa-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .spa-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        .spa-card h3 {
+            color: #2d3436;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        .spa-card p {
+            color: #636e72;
+            margin-bottom: 20px;
+        }
+        .spa-card a {
+            display: inline-block;
+            background: #74b9ff;
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            transition: background 0.3s;
+        }
+        .spa-card a:hover {
+            background: #0984e3;
+        }
+        .admin-card a { background: #a29bfe; }
+        .admin-card a:hover { background: #6c5ce7; }
+        .app-card a { background: #fd79a8; }
+        .app-card a:hover { background: #e84393; }
+        .features {
+            margin-top: 40px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+        .features h3 {
+            color: #2d3436;
+            margin-bottom: 20px;
+        }
+        .features ul {
+            color: #636e72;
+            line-height: 1.8;
+        }
+        .api-demo {
+            margin-top: 30px;
+            padding: 20px;
+            background: #2d3436;
+            color: white;
+            border-radius: 10px;
+        }
+        button {
+            background: #00b894;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #00a085; }
+        #api-result {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Heisenberg Multi-SPA Demo</h1>
+        <p class="subtitle">Demonstrating multiple frontend applications with a single Rust backend</p>
+        
+        <div class="spa-grid">
+            <div class="spa-card admin-card">
+                <h3>🛠️ Admin Panel</h3>
+                <p>System administration interface with user management, configuration, and analytics.</p>
+                <a href="/admin/">Open Admin Panel</a>
+            </div>
+            
+            <div class="spa-card app-card">
+                <h3>📱 Main Application</h3>
+                <p>Primary user application with dashboard, profile management, and notifications.</p>
+                <a href="/app/">Open Main App</a>
+            </div>
+            
+            <div class="spa-card">
+                <h3>🏠 Landing Page</h3>
+                <p>This page! The default route that introduces the multi-SPA architecture.</p>
+                <a href="/">You're Here!</a>
+            </div>
+        </div>
+
+        <div class="features">
+            <h3>✨ Heisenberg Features Demonstrated</h3>
+            <ul>
+                <li><strong>Multiple SPA Routes:</strong> Different patterns (<code>/admin/*</code>, <code>/app/*</code>, <code>/*</code>)</li>
+                <li><strong>Route Priority:</strong> Most specific routes win (exact > prefix > catch-all)</li>
+                <li><strong>Shared Backend:</strong> Single Rust server with different API endpoints</li>
+                <li><strong>Development Mode:</strong> Each SPA can proxy to different dev servers</li>
+                <li><strong>Production Mode:</strong> All SPAs served from embedded static assets</li>
+                <li><strong>SPA Fallback:</strong> Client-side routing supported with fallback files</li>
+            </ul>
+        </div>
+
+        <div class="api-demo">
+            <h3>🔧 API Demo</h3>
+            <p>Test the shared backend API:</p>
+            <button onclick="testAPI('/api/status')">System Status</button>
+            <button onclick="testAPI('/api/admin')">Admin API</button>
+            <button onclick="testAPI('/api/app')">App API</button>
+            <div id="api-result"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testAPI(endpoint) {
+            try {
+                const response = await fetch(endpoint);
+                const data = await response.json();
+                document.getElementById('api-result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('api-result').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        // Simulate client-side routing
+        window.addEventListener('popstate', function(event) {
+            console.log('Landing SPA: Route changed to', window.location.pathname);
+        });
+    </script>
+</body>
+</html>

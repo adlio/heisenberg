@@ -1,0 +1,57 @@
+[package]
+name = "heisenberg"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+authors = ["Aaron <aaron@example.com>"]
+license = "MIT OR Apache-2.0"
+description = "Framework-agnostic dual-mode web serving for Rust applications"
+repository = "https://github.com/username/heisenberg"
+keywords = ["web", "spa", "proxy", "embed", "tower"]
+categories = ["web-programming", "development-tools"]
+
+[workspace]
+members = [
+    ".",
+    "examples/*",
+]
+
+[features]
+default = ["tower"]
+tower = []
+logging = ["dep:tracing"]
+actix = ["dep:actix-web"]
+rocket = ["dep:rocket"]
+
+[dependencies]
+# Core dependencies
+tokio = { version = "1.35", features = ["full"] }
+tower = "0.4"
+tower-layer = "0.3"
+hyper = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+rust-embed = "8.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+tracing = { version = "0.1", optional = true }
+
+# Optional framework dependencies
+actix-web = { version = "4.0", optional = true }
+rocket = { version = "0.5", optional = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tower-test = "0.4"
+tempfile = "3.0"
+assert_matches = "1.5"
+httpmock = "0.7"
+criterion = { version = "0.5", features = ["html_reports"] }
+cargo-husky = { version = "1.5", default-features = false, features = ["precommit-hook", "run-cargo-test", "run-cargo-fmt", "run-cargo-clippy"] }
+
+[build-dependencies]
+# For build.rs asset embedding logic
+
+[[bench]]
+name = "performance"
+harness = false

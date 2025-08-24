@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actix-React Example</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 10px 0; cursor: pointer; }
+        .response { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Actix-React Example</h1>
+        <p>This demonstrates Heisenberg's Actix-web adapter functionality.</p>
+        
+        <button onclick="callAPI()">Call API</button>
+        <div id="response" class="response" style="display: none;"></div>
+        
+        <h2>Features Demonstrated:</h2>
+        <ul>
+            <li>Actix-web adapter integration</li>
+            <li>API routes served by Rust backend</li>
+            <li>Static frontend served by Heisenberg</li>
+            <li>Dual-mode operation (dev/prod)</li>
+        </ul>
+    </div>
+
+    <script>
+        async function callAPI() {
+            try {
+                const response = await fetch('/api/hello');
+                const data = await response.json();
+                document.getElementById('response').style.display = 'block';
+                document.getElementById('response').innerHTML = 
+                    '<strong>API Response:</strong><br>' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('response').style.display = 'block';
+                document.getElementById('response').innerHTML = 
+                    '<strong>Error:</strong> ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
