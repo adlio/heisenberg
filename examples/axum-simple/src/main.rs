@@ -10,7 +10,7 @@ async fn api_handler() -> Html<&'static str> {
 #[tokio::main]
 async fn main() {
     // Configure Heisenberg
-    let heisenberg_config = Heisenberg::new().spa("./dist");
+    let heisenberg_config = Heisenberg::new().spa("./dist").build();
 
     // Create Axum app with API routes
     let app = Router::new()

@@ -1,5 +1,5 @@
 use axum::{response::Html, routing::get, Router};
-use heisenberg::Heisenberg;
+use heisenberg::{Heisenberg, HeisenbergLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -26,7 +26,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/api/hello", get(api_handler))
-        .layer(heisenberg_config);
+        .layer(HeisenbergLayer::new(heisenberg_config));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     tracing::info!("Server listening on http://localhost:3000");

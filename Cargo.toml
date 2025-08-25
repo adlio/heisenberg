@@ -4,9 +4,12 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.70"
 authors = ["Aaron <aaron@example.com>"]
-license = "MIT OR Apache-2.0"
-description = "Framework-agnostic dual-mode web serving for Rust applications"
+license = "MIT"
+description = "Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switch between development mode (proxying to frontend dev servers) and production mode (serving embedded static assets)."
 repository = "https://github.com/username/heisenberg"
+homepage = "https://github.com/username/heisenberg"
+documentation = "https://docs.rs/heisenberg"
+readme = "README.md"
 keywords = ["web", "spa", "proxy", "embed", "tower"]
 categories = ["web-programming", "development-tools"]
 
