@@ -21,7 +21,8 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .route("/api/hello", web::get().to(api_handler))
-            .route("/*", web::get().to(spa_handler))
+            .route("/", web::get().to(spa_handler))
+            .route("/{path:.*}", web::get().to(spa_handler))
     })
     .bind("127.0.0.1:8080")?
     .run()

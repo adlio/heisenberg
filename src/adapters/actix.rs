@@ -121,10 +121,53 @@ async fn serve_embedded_asset(
     path: &str,
     route_config: &crate::core::config::SpaRouteConfig,
 ) -> ActixResult<HttpResponse> {
-    // For now, return a placeholder response
-    // This will be implemented when we have the static file service ready
-    Ok(HttpResponse::Ok().content_type("text/html").body(format!(
-        "<html><body><h1>Production Mode</h1><p>Path: {}</p><p>Route: {}</p></body></html>",
-        path, route_config.pattern
-    )))
+    // Normalize the path - remove leading slash and handle root
+    let file_path = if path == "/" || path.is_empty() {
+        route_config.fallback_file.as_deref().unwrap_or("index.html")
+    } else {
+        path.strip_prefix('/').unwrap_or(path)
+    };
+    
+    // Build full file path
+    let full_path = route_config.embed_dir.join(file_path);
+    
+    // Try to read the file
+    match tokio::fs::read(&full_path).await {
+        Ok(contents) => {
+            // Determine content type from file extension
+            let content_type = match full_path.extension().and_then(|ext| ext.to_str()) {
+                Some("html") => "text/html; charset=utf-8",
+                Some("css") => "text/css; charset=utf-8", 
+                Some("js") => "application/javascript; charset=utf-8",
+                Some("json") => "application/json; charset=utf-8",
+                Some("png") => "image/png",
+                Some("jpg") | Some("jpeg") => "image/jpeg",
+                Some("gif") => "image/gif",
+                Some("svg") => "image/svg+xml",
+                Some("ico") => "image/x-icon",
+                Some("woff") => "font/woff",
+                Some("woff2") => "font/woff2",
+                Some("ttf") => "font/ttf",
+                _ => "application/octet-stream",
+            };
+            
+            Ok(HttpResponse::Ok()
+                .content_type(content_type)
+                .body(contents))
+        }
+        Err(_) => {
+            // File not found, try fallback for SPA routing
+            if let Some(fallback) = &route_config.fallback_file {
+                let fallback_path = route_config.embed_dir.join(fallback);
+                match tokio::fs::read(&fallback_path).await {
+                    Ok(contents) => Ok(HttpResponse::Ok()
+                        .content_type("text/html; charset=utf-8")
+                        .body(contents)),
+                    Err(_) => Err(actix_web::error::ErrorNotFound("File not found"))
+                }
+            } else {
+                Err(actix_web::error::ErrorNotFound("File not found"))
+            }
+        }
+    }
 }

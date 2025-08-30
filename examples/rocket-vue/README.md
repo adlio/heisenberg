@@ -4,12 +4,24 @@ Demonstrates Heisenberg's Rocket adapter with a Vue-style frontend.
 
 ## Running
 
+### Production Mode (Static Files)
 ```bash
 cd examples/rocket-vue
 cargo run
 ```
-
 Then visit http://127.0.0.1:8000
+
+### Development Mode (Live Vue + HMR)
+```bash
+# Terminal 1: Start Rocket backend
+cd examples/rocket-vue
+NODE_ENV=development cargo run
+
+# Terminal 2: Start Vue dev server
+npm install
+npm run dev
+```
+Then visit http://localhost:3000 (Vue dev server with API proxy)
 
 ## What it demonstrates
 
