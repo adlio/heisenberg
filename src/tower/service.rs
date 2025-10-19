@@ -5,7 +5,7 @@ use crate::core::mode::{detect_mode, Mode};
 use crate::core::router::Router;
 use crate::services::proxy::ProxyService;
 use crate::services::static_files::StaticFileService;
-use http_body_util::Full;
+use http_body_util::BodyExt;
 use hyper::body::Bytes;
 use hyper::{Request, Response};
 use std::collections::HashMap;
@@ -16,8 +16,6 @@ use std::task::{Context, Poll};
 use tower::Service;
 #[cfg(feature = "logging")]
 use tracing::debug;
-
-type Body = Full<Bytes>;
 
 /// Heisenberg Tower service
 #[derive(Clone)]
@@ -67,21 +65,23 @@ impl<S> HeisenbergService<S> {
     }
 }
 
-impl<S> Service<Request<Body>> for HeisenbergService<S>
+impl<S, B> Service<Request<B>> for HeisenbergService<S>
 where
-    S: Service<Request<Body>, Response = Response<Body>> + Clone + Send + 'static,
+    S: Service<Request<B>> + Clone + Send + 'static,
+    S::Response: Into<Response<B>> + Send + 'static,
     S::Future: Send + 'static,
-    S::Error: Into<Box<dyn std::error::Error + Send + Sync>> + Send + Sync + 'static,
+    S::Error: Send + Sync + 'static,
+    B: From<Bytes> + Send + 'static,
 {
-    type Response = Response<Body>;
-    type Error = Box<dyn std::error::Error + Send + Sync>;
+    type Response = Response<B>;
+    type Error = S::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx).map_err(|e| e.into())
+        self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: Request<Body>) -> Self::Future {
+    fn call(&mut self, req: Request<B>) -> Self::Future {
         let inner = self.inner.clone();
         let mut inner_service = inner;
         let router = self.router.clone();
@@ -113,13 +113,17 @@ where
                         };
                         if let Some(proxy) = proxy {
                             match proxy.proxy_request(&path).await {
-                                Ok(response) => return Ok(response),
+                                Ok(response) => {
+                                    let (parts, body) = response.into_parts();
+                                    let bytes = body.collect().await.unwrap().to_bytes();
+                                    return Ok(Response::from_parts(parts, B::from(bytes)));
+                                }
                                 Err(e) => {
                                     #[cfg(feature = "logging")]
                                     debug!(error = %e, "Proxy request failed");
                                     return Ok(Response::builder()
                                         .status(503)
-                                        .body(Full::new(Bytes::from(format!("Proxy error: {}", e))))
+                                        .body(B::from(Bytes::from(format!("Proxy error: {}", e))))
                                         .unwrap());
                                 }
                             }
@@ -132,13 +136,17 @@ where
                         };
                         if let Some(static_svc) = static_svc {
                             match static_svc.serve_file(&path).await {
-                                Ok(response) => return Ok(response),
+                                Ok(response) => {
+                                    let (parts, body) = response.into_parts();
+                                    let bytes = body.collect().await.unwrap().to_bytes();
+                                    return Ok(Response::from_parts(parts, B::from(bytes)));
+                                }
                                 Err(e) => {
                                     #[cfg(feature = "logging")]
                                     debug!(error = %e, "Static file serve failed");
                                     return Ok(Response::builder()
                                         .status(404)
-                                        .body(Full::new(Bytes::from(format!(
+                                        .body(B::from(Bytes::from(format!(
                                             "File not found: {}",
                                             e
                                         ))))
@@ -151,7 +159,10 @@ where
             }
 
             // No Heisenberg route matched, pass to inner service
-            inner_service.call(req).await.map_err(|e| e.into())
+            match inner_service.call(req).await {
+                Ok(response) => Ok(response.into()),
+                Err(e) => Err(e),
+            }
         })
     }
 }
