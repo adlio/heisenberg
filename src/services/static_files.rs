@@ -1,42 +1,99 @@
 //! Static file serving for production mode
 
 use crate::error::HeisenbergError;
+use http_body_util::Full;
+use hyper::body::Bytes;
 use hyper::{Response, StatusCode};
-// use rust_embed::RustEmbed; // Will be used when we add actual embedded assets
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use tokio::fs;
 
-/// Static file service using embedded assets
+type Body = Full<Bytes>;
+
+/// Static file service for serving files from a directory
 pub struct StaticFileService {
-    #[allow(dead_code)] // Will be used when we add actual embedded assets
+    base_dir: PathBuf,
     fallback_file: Option<String>,
 }
 
 impl StaticFileService {
     /// Create a new static file service
-    pub fn new(fallback_file: Option<String>) -> Self {
-        Self { fallback_file }
-    }
-
-    /// Serve a file by path
-    pub fn serve_file(&self, path: &str) -> Result<Response<String>, HeisenbergError> {
-        // For now, just return a simple response
-        // Will be enhanced with actual rust-embed integration
-        if path == "/" || path == "/index.html" {
-            Ok(Response::builder()
-                .status(StatusCode::OK)
-                .header("content-type", "text/html")
-                .body("<html><body><h1>Heisenberg Static Server</h1></body></html>".to_string())
-                .unwrap())
-        } else {
-            Err(HeisenbergError::file_not_found(
-                path,
-                "• Check if the file exists in the embedded assets\n• Verify the frontend build completed successfully\n• Ensure the embed directory path is correct\n• For SPAs, missing files should fall back to index.html"
-            ))
+    pub fn new(base_dir: PathBuf, fallback_file: Option<String>) -> Self {
+        Self {
+            base_dir,
+            fallback_file,
         }
     }
 
+    /// Serve a file by path
+    pub async fn serve_file(&self, path: &str) -> Result<Response<Body>, HeisenbergError> {
+        let clean_path = path.trim_start_matches('/');
+        let file_path = if clean_path.is_empty() {
+            self.base_dir.join("index.html")
+        } else {
+            self.base_dir.join(clean_path)
+        };
+
+        // Security: prevent path traversal
+        let canonical_base = self.base_dir.canonicalize().map_err(|e| {
+            HeisenbergError::file_not_found(
+                self.base_dir.display().to_string(),
+                format!("Base directory error: {}", e),
+            )
+        })?;
+
+        let canonical_file = match file_path.canonicalize() {
+            Ok(p) => p,
+            Err(_) => {
+                // File doesn't exist, try fallback
+                if let Some(ref fallback) = self.fallback_file {
+                    return self.serve_fallback(fallback).await;
+                }
+                return Err(HeisenbergError::file_not_found(path, "File not found"));
+            }
+        };
+
+        if !canonical_file.starts_with(&canonical_base) {
+            return Err(HeisenbergError::file_not_found(
+                path,
+                "Path traversal attempt blocked",
+            ));
+        }
+
+        // Read and serve the file
+        match fs::read(&canonical_file).await {
+            Ok(contents) => {
+                let mime_type = self.detect_mime_type(path);
+                Ok(Response::builder()
+                    .status(StatusCode::OK)
+                    .header("content-type", mime_type)
+                    .body(Full::new(Bytes::from(contents)))
+                    .unwrap())
+            }
+            Err(_) => {
+                if let Some(ref fallback) = self.fallback_file {
+                    self.serve_fallback(fallback).await
+                } else {
+                    Err(HeisenbergError::file_not_found(path, "File not found"))
+                }
+            }
+        }
+    }
+
+    async fn serve_fallback(&self, fallback: &str) -> Result<Response<Body>, HeisenbergError> {
+        let fallback_path = self.base_dir.join(fallback);
+        let contents = fs::read(&fallback_path).await.map_err(|e| {
+            HeisenbergError::file_not_found(fallback, format!("Fallback file error: {}", e))
+        })?;
+
+        let mime_type = self.detect_mime_type(fallback);
+        Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("content-type", mime_type)
+            .body(Full::new(Bytes::from(contents)))
+            .unwrap())
+    }
+
     /// Detect MIME type from file extension
-    #[allow(dead_code)] // Will be used when we add actual file serving
     fn detect_mime_type(&self, path: &str) -> &'static str {
         let ext = Path::new(path)
             .extension()
@@ -44,13 +101,18 @@ impl StaticFileService {
             .unwrap_or("");
 
         match ext {
-            "html" => "text/html",
-            "css" => "text/css",
-            "js" => "application/javascript",
+            "html" => "text/html; charset=utf-8",
+            "css" => "text/css; charset=utf-8",
+            "js" | "mjs" => "application/javascript; charset=utf-8",
             "json" => "application/json",
             "png" => "image/png",
             "jpg" | "jpeg" => "image/jpeg",
+            "gif" => "image/gif",
             "svg" => "image/svg+xml",
+            "woff" => "font/woff",
+            "woff2" => "font/woff2",
+            "ttf" => "font/ttf",
+            "ico" => "image/x-icon",
             _ => "application/octet-stream",
         }
     }

@@ -2,8 +2,12 @@
 
 use crate::error::HeisenbergError;
 use crate::services::health::HealthChecker;
+use http_body_util::Full;
+use hyper::body::Bytes;
 use hyper::{Response, StatusCode};
 use std::sync::Arc;
+
+type Body = Full<Bytes>;
 
 /// Proxy service for forwarding requests to dev servers
 pub struct ProxyService {
@@ -33,13 +37,13 @@ impl ProxyService {
     }
 
     /// Proxy a request to the target server
-    pub async fn proxy_request(&self, path: &str) -> Result<Response<String>, HeisenbergError> {
+    pub async fn proxy_request(&self, path: &str) -> Result<Response<Body>, HeisenbergError> {
         // Quick health check before proxying
         if !self.health_checker.is_healthy().await {
             return Ok(Response::builder()
                 .status(StatusCode::SERVICE_UNAVAILABLE)
                 .header("content-type", "text/html")
-                .body(self.create_unavailable_error_page())
+                .body(Full::new(Bytes::from(self.create_unavailable_error_page())))
                 .unwrap());
         }
 
@@ -53,7 +57,7 @@ impl ProxyService {
                 Ok(Response::builder()
                     .status(status.as_u16())
                     .header("content-type", "text/html")
-                    .body(body)
+                    .body(Full::new(Bytes::from(body)))
                     .unwrap())
             }
             Err(e) => {
@@ -61,7 +65,7 @@ impl ProxyService {
                 Ok(Response::builder()
                     .status(StatusCode::SERVICE_UNAVAILABLE)
                     .header("content-type", "text/html")
-                    .body(self.create_error_page(&e))
+                    .body(Full::new(Bytes::from(self.create_error_page(&e))))
                     .unwrap())
             }
         }

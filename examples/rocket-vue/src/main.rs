@@ -1,4 +1,6 @@
-use rocket::{get, launch, routes, serde::json::Json, fs::NamedFile, response::Redirect, http::Status};
+use rocket::{
+    fs::NamedFile, get, http::Status, launch, response::Redirect, routes, serde::json::Json,
+};
 use std::path::{Path, PathBuf};
 
 fn is_dev_mode() -> bool {
@@ -12,16 +14,18 @@ async fn spa_handler(path: PathBuf) -> Result<NamedFile, Status> {
         // For now, return 503 to indicate dev server should be running
         return Err(Status::ServiceUnavailable);
     }
-    
+
     // Production mode: serve static files
     let mut file_path = Path::new("dist").join(&path);
-    
+
     // If path is empty or directory, serve index.html
     if path.as_os_str().is_empty() || file_path.is_dir() {
         file_path = Path::new("dist/index.html").to_path_buf();
     }
-    
-    NamedFile::open(file_path).await.map_err(|_| Status::NotFound)
+
+    NamedFile::open(file_path)
+        .await
+        .map_err(|_| Status::NotFound)
 }
 
 #[get("/hello")]
