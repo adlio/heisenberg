@@ -3,6 +3,7 @@
 use crate::core::config::Heisenberg;
 use crate::core::mode::{detect_mode, Mode};
 use crate::core::router::Router;
+use crate::services::process::ProcessManager;
 use crate::services::proxy::ProxyService;
 use crate::services::static_files::StaticFileService;
 use http_body_util::BodyExt;
@@ -25,6 +26,8 @@ pub struct HeisenbergService<S> {
     mode: Mode,
     proxy_services: Arc<Mutex<HashMap<String, Arc<ProxyService>>>>,
     static_services: Arc<Mutex<HashMap<String, Arc<StaticFileService>>>>,
+    #[allow(dead_code)] // Kept alive for Drop cleanup
+    process_manager: Option<Arc<ProcessManager>>,
 }
 
 impl<S> HeisenbergService<S> {
@@ -55,12 +58,40 @@ impl<S> HeisenbergService<S> {
             }
         }
 
+        // Start dev servers in development mode
+        let process_manager = if mode == Mode::Development {
+            let pm = Arc::new(ProcessManager::new());
+            for route in config.routes() {
+                let route_id = route.pattern.clone();
+                let command = route.dev_command.clone();
+                let working_dir = route.working_dir.clone();
+                let dev_url = route.dev_proxy_url.clone();
+                let open_browser = route.open_browser;
+                let pm_clone = pm.clone();
+
+                tokio::spawn(async move {
+                    if let Err(e) = pm_clone
+                        .start_process(&route_id, &command, &working_dir, &dev_url, open_browser)
+                        .await
+                    {
+                        #[cfg(feature = "logging")]
+                        debug!(error = %e, "Failed to start dev server");
+                        eprintln!("Warning: Failed to start dev server: {}", e);
+                    }
+                });
+            }
+            Some(pm)
+        } else {
+            None
+        };
+
         Ok(Self {
             inner,
             router: Arc::new(Mutex::new(router)),
             mode,
             proxy_services: Arc::new(Mutex::new(proxy_services)),
             static_services: Arc::new(Mutex::new(static_services)),
+            process_manager,
         })
     }
 }
