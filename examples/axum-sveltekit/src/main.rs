@@ -65,11 +65,13 @@ async fn main() {
         .route("/todos/:id/toggle", post(toggle_todo))
         .with_state(store);
 
+    // Apply Heisenberg layer first, then nest API routes
+    // This ensures API routes take precedence over SPA fallback
     let app = Router::new()
-        .nest("/api", api_routes)
         .layer(heisenberg::HeisenbergLayer::new(
             heisenberg::Heisenberg::new().spa("./web/build").build(),
-        ));
+        ))
+        .nest("/api", api_routes);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3001")
         .await
