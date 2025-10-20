@@ -37,7 +37,12 @@ impl ProxyService {
     }
 
     /// Proxy a request to the target server
-    pub async fn proxy_request(&self, path: &str) -> Result<Response<Body>, HeisenbergError> {
+    pub async fn proxy_request(
+        &self,
+        path: &str,
+        query: Option<&str>,
+        headers: &hyper::HeaderMap,
+    ) -> Result<Response<Body>, HeisenbergError> {
         // Quick health check before proxying
         if !self.health_checker.is_healthy().await {
             return Ok(Response::builder()
@@ -47,27 +52,40 @@ impl ProxyService {
                 .unwrap());
         }
 
-        let target_url = format!("{}{}", self.target_url, path);
+        let target_url = if let Some(q) = query {
+            format!("{}{}?{}", self.target_url, path, q)
+        } else {
+            format!("{}{}", self.target_url, path)
+        };
 
-        match self.client.get(&target_url).send().await {
+        // Build request with forwarded headers
+        let mut req = self.client.get(&target_url);
+        for (name, value) in headers.iter() {
+            if let Ok(val) = value.to_str() {
+                req = req.header(name.as_str(), val);
+            }
+        }
+
+        match req.send().await {
             Ok(response) => {
                 let status = response.status();
-                let body = response.text().await.unwrap_or_default();
+                let resp_headers = response.headers().clone();
+                let body = response.bytes().await.unwrap_or_default();
 
-                Ok(Response::builder()
-                    .status(status.as_u16())
-                    .header("content-type", "text/html")
-                    .body(Full::new(Bytes::from(body)))
-                    .unwrap())
+                let mut builder = Response::builder().status(status.as_u16());
+
+                // Forward response headers
+                for (name, value) in resp_headers.iter() {
+                    builder = builder.header(name.as_str(), value.as_bytes());
+                }
+
+                Ok(builder.body(Full::new(body)).unwrap())
             }
-            Err(e) => {
-                // Return enhanced error page when dev server unavailable
-                Ok(Response::builder()
-                    .status(StatusCode::SERVICE_UNAVAILABLE)
-                    .header("content-type", "text/html")
-                    .body(Full::new(Bytes::from(self.create_error_page(&e))))
-                    .unwrap())
-            }
+            Err(e) => Ok(Response::builder()
+                .status(StatusCode::SERVICE_UNAVAILABLE)
+                .header("content-type", "text/html")
+                .body(Full::new(Bytes::from(self.create_error_page(&e))))
+                .unwrap()),
         }
     }
 

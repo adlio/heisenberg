@@ -122,6 +122,8 @@ where
 
         Box::pin(async move {
             let path = req.uri().path().to_string();
+            let query = req.uri().query().map(|s| s.to_string());
+            let headers = req.headers().clone();
 
             #[cfg(feature = "logging")]
             debug!(path = %path, mode = ?mode, "Processing Heisenberg request");
@@ -143,7 +145,7 @@ where
                             proxy_services.get(&route_config.pattern).cloned()
                         };
                         if let Some(proxy) = proxy {
-                            match proxy.proxy_request(&path).await {
+                            match proxy.proxy_request(&path, query.as_deref(), &headers).await {
                                 Ok(response) => {
                                     let (parts, body) = response.into_parts();
                                     let bytes = body.collect().await.unwrap().to_bytes();
