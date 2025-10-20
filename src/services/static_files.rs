@@ -62,7 +62,7 @@ impl StaticFileService {
         // Read and serve the file
         match fs::read(&canonical_file).await {
             Ok(contents) => {
-                let mime_type = self.detect_mime_type(path);
+                let mime_type = self.detect_mime_type(canonical_file.to_str().unwrap_or(path));
                 Ok(Response::builder()
                     .status(StatusCode::OK)
                     .header("content-type", mime_type)
