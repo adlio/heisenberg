@@ -80,7 +80,9 @@ axum-sveltekit/
 ```rust
 let app = Router::new()
     .nest("/api", api_routes)
-    .layer(heisenberg::Heisenberg::new().spa("./web/build"));
+    .layer(heisenberg::HeisenbergLayer::new(
+        heisenberg::Heisenberg::new().spa("./web/build").build()
+    ));
 ```
 
 ### SvelteKit Static Adapter
