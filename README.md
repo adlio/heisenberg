@@ -150,21 +150,6 @@ RUST_LOG=debug,heisenberg=trace cargo run
 - **[Actix-web](examples/actix-react/)** - Actix-web integration
 - **[Rocket](examples/rocket-vue/)** - Rocket integration
 
-## ⚠️ Vite/SvelteKit HMR Setup
-
-When using Vite-based frameworks (SvelteKit, Vue, React+Vite), configure HMR to connect directly:
-
-```javascript
-// vite.config.js
-export default defineConfig({
-    server: {
-        hmr: { clientPort: 5173 }  // Your dev server port
-    }
-});
-```
-
-This prevents HMR websocket connection issues that cause page refresh loops.
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
