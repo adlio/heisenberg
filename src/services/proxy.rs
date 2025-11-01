@@ -128,8 +128,8 @@ impl ProxyService {
     </div>
     
     <script>
-        // Auto-refresh every 3 seconds to check if dev server is back
-        setTimeout(() => {{ window.location.reload(); }}, 3000);
+        // Auto-refresh every 5 seconds to check if dev server is back
+        setTimeout(() => {{ window.location.reload(); }}, 5000);
     </script>
 </body>
 </html>"#,
@@ -161,7 +161,7 @@ impl ProxyService {
     </div>
     
     <script>
-        setTimeout(() => {{ window.location.reload(); }}, 2000);
+        setTimeout(() => {{ window.location.reload(); }}, 5000);
     </script>
 </body>
 </html>"#,
