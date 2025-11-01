@@ -31,13 +31,13 @@ tokio = { version = "1.35", features = ["full"] }
 
 ```rust
 use axum::{routing::get, Router};
-use heisenberg::Heisenberg;
+use heisenberg::{Heisenberg, HeisenbergLayer};
 
 #[tokio::main]
 async fn main() {
     let app = Router::new()
         .route("/api/hello", get(|| async { "Hello API!" }))
-        .layer(Heisenberg::new().spa("./dist"));
+        .layer(HeisenbergLayer::new(Heisenberg::new().spa("./dist").build()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
@@ -74,10 +74,9 @@ Works automatically with any Tower-based framework:
 
 ```rust
 // Axum
-let app = Router::new().layer(heisenberg_config);
-
-// Warp  
-let routes = routes.with(heisenberg_config);
+let app = Router::new()
+    .route("/api/hello", get(handler))
+    .layer(HeisenbergLayer::new(heisenberg_config));
 ```
 
 ### Framework Adapters

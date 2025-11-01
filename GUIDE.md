@@ -26,13 +26,13 @@ tokio = { version = "1.35", features = ["full"] }
 
 ```rust
 use axum::{routing::get, Router};
-use heisenberg::Heisenberg;
+use heisenberg::{Heisenberg, HeisenbergLayer};
 
 #[tokio::main]
 async fn main() {
     let app = Router::new()
         .route("/api/hello", get(|| async { "Hello API!" }))
-        .layer(Heisenberg::new().spa("./dist"));
+        .layer(HeisenbergLayer::new(Heisenberg::new().spa("./dist").build()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
@@ -156,13 +156,7 @@ Works automatically via Tower layer:
 // Axum
 let app = Router::new()
     .route("/api/*", get(api_handler))
-    .layer(heisenberg_config);
-
-// Warp
-let routes = warp::path("api")
-    .and(api_routes)
-    .or(warp::any().map(|| warp::reply()))
-    .with(heisenberg_config);
+    .layer(HeisenbergLayer::new(heisenberg_config));
 ```
 
 ### Actix-web
@@ -346,7 +340,7 @@ if cfg!(debug_assertions) {
 **After:**
 ```rust
 let app = Router::new()
-    .layer(Heisenberg::new().spa("./dist"));
+    .layer(HeisenbergLayer::new(Heisenberg::new().spa("./dist").build()));
 ```
 
 ### From Static File Serving
@@ -360,7 +354,7 @@ let app = Router::new()
 **After:**
 ```rust
 let app = Router::new()
-    .layer(Heisenberg::new().spa("./dist"));
+    .layer(HeisenbergLayer::new(Heisenberg::new().spa("./dist").build()));
 ```
 
 Benefits: Automatic dev mode, process management, SPA routing support.
