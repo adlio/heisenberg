@@ -133,27 +133,20 @@ fn infer_dev_command(package_json: &PackageJson) -> Vec<String> {
     let command_priorities = ["dev", "start", "serve"];
 
     for cmd in &command_priorities {
-        if let Some(script) = package_json.scripts.get(*cmd) {
-            return parse_command(script);
+        if package_json.scripts.contains_key(*cmd) {
+            return vec!["npm".to_string(), "run".to_string(), cmd.to_string()];
         }
     }
 
     // Look for any script starting with "dev:"
-    for (name, script) in &package_json.scripts {
+    for name in package_json.scripts.keys() {
         if name.starts_with("dev:") {
-            return parse_command(script);
+            return vec!["npm".to_string(), "run".to_string(), name.clone()];
         }
     }
 
     // Default fallback
     vec!["npm".to_string(), "run".to_string(), "dev".to_string()]
-}
-
-/// Parse a command string into arguments
-fn parse_command(command: &str) -> Vec<String> {
-    // Simple parsing - split on whitespace
-    // TODO: Handle quoted arguments properly
-    command.split_whitespace().map(String::from).collect()
 }
 
 /// Infer development server port from package.json scripts
