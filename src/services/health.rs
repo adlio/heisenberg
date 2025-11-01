@@ -79,9 +79,15 @@ impl HealthChecker {
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
 
+        let help_msg = format!("• Check if the dev server process is actually running\n• Look for error messages in the terminal output above\n• Verify the dev command in package.json is correct\n• Try running 'npm run dev' manually in {} to see errors\n• Some servers need more time - SvelteKit typically takes 5-10 seconds", 
+            std::env::current_dir().unwrap_or_default().display());
+
         Err(HeisenbergError::health_check(
-            format!("Server did not become healthy within {:?}", max_wait),
-            "• The dev server is taking too long to start\n• Check if the dev command is correct\n• Verify dependencies are installed (npm install)\n• Look at the process logs for startup errors\n• Some servers need more time - try increasing the timeout"
+            format!(
+                "Dev server at {} did not start within {:?}",
+                self.target_url, max_wait
+            ),
+            &help_msg,
         ))
     }
 }

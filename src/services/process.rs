@@ -29,6 +29,55 @@ impl ProcessManager {
         }
     }
 
+    /// Ensure dependencies are installed (checks for node_modules)
+    fn ensure_dependencies_installed(working_dir: &std::path::Path) -> Result<(), HeisenbergError> {
+        let node_modules = working_dir.join("node_modules");
+        let package_json = working_dir.join("package.json");
+
+        // If node_modules exists, assume dependencies are installed
+        if node_modules.exists() {
+            return Ok(());
+        }
+
+        // If no package.json, nothing to install
+        if !package_json.exists() {
+            return Ok(());
+        }
+
+        #[cfg(feature = "logging")]
+        info!(
+            working_dir = %working_dir.display(),
+            "Dependencies not found, running npm install..."
+        );
+
+        println!("📦 Installing dependencies in {}...", working_dir.display());
+        println!("   This may take a minute on first run...");
+
+        let output = Command::new("npm")
+            .arg("install")
+            .current_dir(working_dir)
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .output()
+            .map_err(|e| {
+                HeisenbergError::process(
+                    format!("Failed to run npm install: {}", e),
+                    "• Ensure npm is installed and in PATH\n• Check if package.json is valid\n• Try running 'npm install' manually in the web directory"
+                )
+            })?;
+
+        if !output.status.success() {
+            return Err(HeisenbergError::process(
+                "npm install failed - see output above for details".to_string(),
+                "• Check package.json for errors\n• Ensure npm registry is accessible\n• Try deleting package-lock.json and node_modules, then retry\n• Run 'npm install' manually to see full error details"
+            ));
+        }
+
+        println!("✅ Dependencies installed successfully");
+
+        Ok(())
+    }
+
     /// Start a frontend dev server process
     pub async fn start_process(
         &self,
@@ -53,6 +102,9 @@ impl ProcessManager {
                 "• Specify a dev command like ['npm', 'run', 'dev']\n• Check your package.json scripts section\n• Use .dev_command() to set a custom command"
             ));
         }
+
+        // Check and install dependencies if needed
+        Self::ensure_dependencies_installed(working_dir)?;
 
         let mut cmd = Command::new(&command[0]);
         cmd.args(&command[1..])

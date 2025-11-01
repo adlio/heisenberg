@@ -1,11 +1,9 @@
 //! Proxy service for development mode
 
 use crate::error::HeisenbergError;
-use crate::services::health::HealthChecker;
 use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper::{Response, StatusCode};
-use std::sync::Arc;
 
 type Body = Full<Bytes>;
 
@@ -13,14 +11,11 @@ type Body = Full<Bytes>;
 pub struct ProxyService {
     target_url: String,
     client: reqwest::Client,
-    health_checker: Arc<HealthChecker>,
 }
 
 impl ProxyService {
     /// Create a new proxy service
     pub fn new(target_url: String) -> Self {
-        let health_checker = Arc::new(HealthChecker::new(target_url.clone()));
-
         // Configure client for optimal connection pooling
         let client = reqwest::Client::builder()
             .pool_max_idle_per_host(10)
@@ -29,11 +24,7 @@ impl ProxyService {
             .build()
             .expect("Failed to create HTTP client");
 
-        Self {
-            target_url,
-            client,
-            health_checker,
-        }
+        Self { target_url, client }
     }
 
     /// Proxy a request to the target server
@@ -43,15 +34,6 @@ impl ProxyService {
         query: Option<&str>,
         headers: &hyper::HeaderMap,
     ) -> Result<Response<Body>, HeisenbergError> {
-        // Quick health check before proxying
-        if !self.health_checker.is_healthy().await {
-            return Ok(Response::builder()
-                .status(StatusCode::SERVICE_UNAVAILABLE)
-                .header("content-type", "text/html")
-                .body(Full::new(Bytes::from(self.create_unavailable_error_page())))
-                .unwrap());
-        }
-
         let target_url = if let Some(q) = query {
             format!("{}{}?{}", self.target_url, path, q)
         } else {
@@ -134,38 +116,6 @@ impl ProxyService {
 </body>
 </html>"#,
             self.target_url, error, self.target_url
-        )
-    }
-
-    /// Create error page for when health check fails
-    fn create_unavailable_error_page(&self) -> String {
-        format!(
-            r#"<!DOCTYPE html>
-<html>
-<head>
-    <title>Development Server Unavailable</title>
-    <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 40px; }}
-        .container {{ max-width: 600px; margin: 0 auto; }}
-        .error {{ background: #fee; border: 1px solid #fcc; padding: 20px; border-radius: 8px; }}
-        code {{ background: #f5f5f5; padding: 2px 4px; border-radius: 3px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="error">
-            <h1>⏳ Development Server Starting</h1>
-            <p>The development server at <code>{}</code> is not ready yet.</p>
-            <p><em>This page will refresh automatically...</em></p>
-        </div>
-    </div>
-    
-    <script>
-        setTimeout(() => {{ window.location.reload(); }}, 5000);
-    </script>
-</body>
-</html>"#,
-            self.target_url
         )
     }
 }
