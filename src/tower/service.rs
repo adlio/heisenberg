@@ -128,10 +128,15 @@ where
             #[cfg(feature = "logging")]
             debug!(path = %path, mode = ?mode, "Processing Heisenberg request");
 
-            // Try to match against Heisenberg routes
-            let route_match = {
+            // Skip common API prefixes - let inner service handle them
+            let is_api_path = path.starts_with("/api/") || path == "/api";
+
+            // Try to match against Heisenberg routes (but skip API paths)
+            let route_match = if !is_api_path {
                 let mut router_guard = router.lock().unwrap();
                 router_guard.match_route(&path).cloned()
+            } else {
+                None
             };
 
             if let Some(route_config) = route_match {
