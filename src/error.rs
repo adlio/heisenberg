@@ -94,4 +94,13 @@ impl HeisenbergError {
             hint: hint.into(),
         }
     }
+
+    /// Create a proxy error with message
+    pub fn proxy(message: impl Into<String>, _hint: impl Into<String>) -> Self {
+        Self::Config {
+            message: message.into(),
+            hint: "• Check if the dev server is running\n• Verify the proxy URL is correct"
+                .to_string(),
+        }
+    }
 }

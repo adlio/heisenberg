@@ -102,7 +102,9 @@ where
     S::Response: Into<Response<B>> + Send + 'static,
     S::Future: Send + 'static,
     S::Error: Send + Sync + 'static,
-    B: From<Bytes> + Send + 'static,
+    B: hyper::body::Body + From<Bytes> + Send + 'static,
+    B::Data: Send,
+    B::Error: std::error::Error + Send + Sync,
 {
     type Response = Response<B>;
     type Error = S::Error;
@@ -128,6 +130,13 @@ where
             #[cfg(feature = "logging")]
             debug!(path = %path, mode = ?mode, "Processing Heisenberg request");
 
+            // Check if this is a WebSocket upgrade request
+            let is_websocket = headers
+                .get("upgrade")
+                .and_then(|v| v.to_str().ok())
+                .map(|v| v.eq_ignore_ascii_case("websocket"))
+                .unwrap_or(false);
+
             // Skip common API prefixes - let inner service handle them
             let is_api_path = path.starts_with("/api/") || path == "/api";
 
@@ -145,6 +154,37 @@ where
 
                 match mode {
                     Mode::Development => {
+                        // Handle WebSocket upgrade requests specially
+                        if is_websocket {
+                            #[cfg(feature = "logging")]
+                            debug!("WebSocket upgrade detected, proxying to dev server");
+
+                            let proxy = {
+                                let proxy_services = proxy_services.lock().unwrap();
+                                proxy_services.get(&route_config.pattern).cloned()
+                            };
+                            if let Some(proxy) = proxy {
+                                match proxy.proxy_websocket(req).await {
+                                    Ok(response) => {
+                                        let (parts, body) = response.into_parts();
+                                        let bytes = body.collect().await.unwrap().to_bytes();
+                                        return Ok(Response::from_parts(parts, B::from(bytes)));
+                                    }
+                                    Err(e) => {
+                                        #[cfg(feature = "logging")]
+                                        debug!(error = %e, "WebSocket proxy failed");
+                                        return Ok(Response::builder()
+                                            .status(503)
+                                            .body(B::from(Bytes::from(format!(
+                                                "WebSocket proxy error: {}",
+                                                e
+                                            ))))
+                                            .unwrap());
+                                    }
+                                }
+                            }
+                        }
+
                         let proxy = {
                             let proxy_services = proxy_services.lock().unwrap();
                             proxy_services.get(&route_config.pattern).cloned()

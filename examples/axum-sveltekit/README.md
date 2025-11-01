@@ -100,4 +100,21 @@ export default {
 };
 ```
 
+### Vite HMR Configuration
+**Important:** Configure Vite to connect HMR directly to the dev server:
+
+```javascript
+// vite.config.js
+export default defineConfig({
+    plugins: [sveltekit()],
+    server: {
+        hmr: {
+            clientPort: 5173  // Connect HMR directly, not through proxy
+        }
+    }
+});
+```
+
+Without this, Vite's HMR websocket will try to connect through the Rust proxy, causing constant page refreshes.
+
 This example showcases Heisenberg's core value proposition: write once, deploy anywhere with automatic mode detection and zero configuration complexity.

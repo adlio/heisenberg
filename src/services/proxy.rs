@@ -4,6 +4,7 @@ use crate::error::HeisenbergError;
 use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper::{Response, StatusCode};
+use tokio_tungstenite::WebSocketStream;
 
 type Body = Full<Bytes>;
 
@@ -69,6 +70,133 @@ impl ProxyService {
                 .body(Full::new(Bytes::from(self.create_error_page(&e))))
                 .unwrap()),
         }
+    }
+
+    /// Proxy a WebSocket upgrade request
+    pub async fn proxy_websocket<B>(
+        &self,
+        mut req: hyper::Request<B>,
+    ) -> Result<Response<Body>, HeisenbergError>
+    where
+        B: hyper::body::Body + Send + 'static,
+        B::Data: Send,
+        B::Error: std::error::Error + Send + Sync,
+    {
+        use hyper_util::rt::TokioIo;
+        use tokio_tungstenite::{tungstenite::protocol::Role, WebSocketStream};
+
+        // Extract target URL from request
+        let path = req.uri().path();
+        let query = req
+            .uri()
+            .query()
+            .map(|q| format!("?{}", q))
+            .unwrap_or_default();
+        let ws_url = self
+            .target_url
+            .replace("http://", "ws://")
+            .replace("https://", "wss://");
+        let target = format!("{}{}{}", ws_url, path, query);
+
+        // Connect to backend WebSocket
+        let (backend_ws, _) = tokio_tungstenite::connect_async(&target)
+            .await
+            .map_err(|e| {
+                HeisenbergError::proxy(format!("WebSocket connection failed: {}", e), "")
+            })?;
+
+        // Get the WebSocket key for the response
+        let key = req
+            .headers()
+            .get("sec-websocket-key")
+            .ok_or_else(|| {
+                HeisenbergError::proxy("Missing Sec-WebSocket-Key header".to_string(), "")
+            })?
+            .clone();
+
+        // Spawn upgrade task
+        tokio::spawn(async move {
+            match hyper::upgrade::on(&mut req).await {
+                Ok(upgraded) => {
+                    let io = TokioIo::new(upgraded);
+                    let client_ws = WebSocketStream::from_raw_socket(io, Role::Server, None).await;
+
+                    if let Err(_e) = Self::forward_websocket(client_ws, backend_ws).await {
+                        #[cfg(feature = "logging")]
+                        tracing::debug!("WebSocket forwarding error: {}", _e);
+                    }
+                }
+                Err(_e) => {
+                    #[cfg(feature = "logging")]
+                    tracing::debug!("WebSocket upgrade failed: {}", _e);
+                }
+            }
+        });
+
+        // Build switching protocols response
+        let accept = Self::compute_accept_key(key.as_bytes());
+        let response = Response::builder()
+            .status(hyper::StatusCode::SWITCHING_PROTOCOLS)
+            .header("upgrade", "websocket")
+            .header("connection", "Upgrade")
+            .header("sec-websocket-accept", accept)
+            .body(Full::new(Bytes::new()))
+            .unwrap();
+
+        Ok(response)
+    }
+
+    /// Compute WebSocket accept key
+    fn compute_accept_key(key: &[u8]) -> String {
+        use base64::{engine::general_purpose, Engine as _};
+        use sha1::{Digest, Sha1};
+        const WS_GUID: &[u8] = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+        let mut hasher = Sha1::new();
+        hasher.update(key);
+        hasher.update(WS_GUID);
+        general_purpose::STANDARD.encode(hasher.finalize())
+    }
+
+    /// Forward messages between client and backend WebSockets
+    async fn forward_websocket<T>(
+        client: WebSocketStream<T>,
+        backend: WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+    where
+        T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        use futures_util::{SinkExt, StreamExt};
+
+        let (mut client_tx, mut client_rx) = client.split();
+        let (mut backend_tx, mut backend_rx) = backend.split();
+
+        let client_to_backend = async {
+            while let Some(msg) = client_rx.next().await {
+                if let Ok(msg) = msg {
+                    if backend_tx.send(msg).await.is_err() {
+                        break;
+                    }
+                }
+            }
+        };
+
+        let backend_to_client = async {
+            while let Some(msg) = backend_rx.next().await {
+                if let Ok(msg) = msg {
+                    if client_tx.send(msg).await.is_err() {
+                        break;
+                    }
+                }
+            }
+        };
+
+        tokio::select! {
+            _ = client_to_backend => {},
+            _ = backend_to_client => {},
+        }
+
+        Ok(())
     }
 
     /// Create an enhanced error page for dev server unavailability
