@@ -25,8 +25,9 @@ struct CreateTodo {
 }
 
 async fn get_todos(store: axum::extract::State<TodoStore>) -> Json<Vec<Todo>> {
-    println!("📋 GET /api/todos");
     let todos = store.lock().await;
+    let count = todos.len();
+    println!("GET /api/todos 200 - {} items", count);
     Json(todos.values().cloned().collect())
 }
 
@@ -34,7 +35,6 @@ async fn create_todo(
     axum::extract::State(store): axum::extract::State<TodoStore>,
     Json(payload): Json<CreateTodo>,
 ) -> Result<Json<Todo>, StatusCode> {
-    println!("➕ POST /api/todos - {}", payload.title);
     let mut todos = store.lock().await;
     let id = todos.len() as u32 + 1;
     let todo = Todo {
@@ -43,18 +43,20 @@ async fn create_todo(
         completed: false,
     };
     todos.insert(id, todo.clone());
+    println!("POST /api/todos 200 - created #{}", id);
     Ok(Json(todo))
 }
 async fn toggle_todo(
     Path(id): Path<u32>,
     axum::extract::State(store): axum::extract::State<TodoStore>,
 ) -> Result<Json<Todo>, StatusCode> {
-    println!("✓ POST /api/todos/{}/toggle", id);
     let mut todos = store.lock().await;
     if let Some(todo) = todos.get_mut(&id) {
         todo.completed = !todo.completed;
+        println!("POST /api/todos/{}/toggle 200", id);
         Ok(Json(todo.clone()))
     } else {
+        println!("POST /api/todos/{}/toggle 404", id);
         Err(StatusCode::NOT_FOUND)
     }
 }
