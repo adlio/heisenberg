@@ -70,12 +70,7 @@ async fn main() {
         .route("/todos/:id/toggle", post(toggle_todo))
         .with_state(store);
 
-    println!("🔧 Configuring Heisenberg...");
     let config = heisenberg::Heisenberg::new().spa("./web/build").build();
-    println!(
-        "✅ Heisenberg configured with {} route(s)",
-        config.routes().len()
-    );
 
     let app = Router::new()
         .nest("/api", api_routes)
@@ -85,9 +80,7 @@ async fn main() {
         .await
         .unwrap();
 
-    println!("🚀 Server running on http://127.0.0.1:3001");
-    println!("📡 Heisenberg will auto-start Vite dev server");
-    println!("⏳ Wait a few seconds for Vite to start...\n");
+    println!("🚀 Server running on http://127.0.0.1:3001\n");
 
     axum::serve(listener, app).await.unwrap();
 }
