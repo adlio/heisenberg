@@ -103,14 +103,21 @@ impl ProcessManager {
             ));
         }
 
+        // Print what we're doing
+        println!(
+            "🔧 Starting dev server: {} (in {})",
+            command.join(" "),
+            working_dir.display()
+        );
+
         // Check and install dependencies if needed
         Self::ensure_dependencies_installed(working_dir)?;
 
         let mut cmd = Command::new(&command[0]);
         cmd.args(&command[1..])
             .current_dir(working_dir)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit());
 
         let child = cmd.spawn().map_err(|e| {
             HeisenbergError::process(

@@ -58,29 +58,42 @@ impl<S> HeisenbergService<S> {
             }
         }
 
-        // Start dev servers in development mode
+        // Start dev servers in development mode (only once)
         let process_manager = if mode == Mode::Development {
-            let pm = Arc::new(ProcessManager::new());
-            for route in config.routes() {
-                let route_id = route.pattern.clone();
-                let command = route.dev_command.clone();
-                let working_dir = route.working_dir.clone();
-                let dev_url = route.dev_proxy_url.clone();
-                let open_browser = route.open_browser;
-                let pm_clone = pm.clone();
+            use std::sync::OnceLock;
+            static PM: OnceLock<Arc<ProcessManager>> = OnceLock::new();
 
-                tokio::spawn(async move {
-                    if let Err(e) = pm_clone
-                        .start_process(&route_id, &command, &working_dir, &dev_url, open_browser)
-                        .await
-                    {
-                        #[cfg(feature = "logging")]
-                        debug!(error = %e, "Failed to start dev server");
-                        eprintln!("Warning: Failed to start dev server: {}", e);
-                    }
-                });
-            }
-            Some(pm)
+            PM.get_or_init(|| {
+                let pm = Arc::new(ProcessManager::new());
+                for route in config.routes() {
+                    let route_id = route.pattern.clone();
+                    let command = route.dev_command.clone();
+                    let working_dir = route.working_dir.clone();
+                    let dev_url = route.dev_proxy_url.clone();
+                    let open_browser = route.open_browser;
+                    let pm_clone = pm.clone();
+
+                    tokio::spawn(async move {
+                        if let Err(e) = pm_clone
+                            .start_process(
+                                &route_id,
+                                &command,
+                                &working_dir,
+                                &dev_url,
+                                open_browser,
+                            )
+                            .await
+                        {
+                            #[cfg(feature = "logging")]
+                            debug!(error = %e, "Failed to start dev server");
+                            eprintln!("Warning: Failed to start dev server: {}", e);
+                        }
+                    });
+                }
+                pm
+            })
+            .clone()
+            .into()
         } else {
             None
         };
