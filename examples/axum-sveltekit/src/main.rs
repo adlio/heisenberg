@@ -65,18 +65,24 @@ async fn main() {
         .route("/todos/:id/toggle", post(toggle_todo))
         .with_state(store);
 
-    // Define API routes first, then apply Heisenberg layer
-    // This ensures API routes are checked before SPA fallback
+    println!("🔧 Configuring Heisenberg...");
+    let config = heisenberg::Heisenberg::new().spa("./web/build").build();
+    println!(
+        "✅ Heisenberg configured with {} route(s)",
+        config.routes().len()
+    );
+
     let app = Router::new()
         .nest("/api", api_routes)
-        .layer(heisenberg::HeisenbergLayer::new(
-            heisenberg::Heisenberg::new().spa("./web/build").build(),
-        ));
+        .layer(heisenberg::HeisenbergLayer::new(config));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3001")
         .await
         .unwrap();
 
     println!("🚀 Server running on http://127.0.0.1:3001");
+    println!("📡 Heisenberg will auto-start Vite dev server");
+    println!("⏳ Wait a few seconds for Vite to start...\n");
+
     axum::serve(listener, app).await.unwrap();
 }

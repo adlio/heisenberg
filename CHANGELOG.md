@@ -56,3 +56,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Performance Benchmarks**: Baseline performance measurements
 
 [0.1.0]: https://github.com/username/heisenberg/releases/tag/v0.1.0
+## [Unreleased] - WebSocket Proxying Feature
+
+### Added
+- **WebSocket proxying** for transparent HMR support (Vite, Next.js, CRA)
+  - Automatic detection of `Upgrade: websocket` header
+  - Bidirectional message forwarding between client and backend
+  - Proper WebSocket handshake with `Sec-WebSocket-Accept`
+  - Implementation in `src/services/proxy.rs` and `src/tower/service.rs`
+
+- **Automated testing** for WebSocket functionality
+  - New test: `tests/websocket_proxy.rs`
+  - Verifies end-to-end WebSocket proxying
+  - Tests bidirectional communication
+  - Run with: `cargo test --test websocket_proxy`
+
+- **Enhanced axum-sveltekit example** as showcase
+  - One-command experience: `cargo run`
+  - Automatic Vite dev server startup
+  - WebSocket HMR working out of the box
+  - Comprehensive documentation in example directory
+
+### Changed
+- Updated README.md to highlight WebSocket support
+- Simplified example configuration (removed manual working_dir)
+- Added `axum` to dev-dependencies for testing
+
+### Documentation
+- All WebSocket documentation consolidated in example READMEs
+- Root README.md updated with testing instructions
+- Removed temporary documentation files (WEBSOCKET_*.md, TESTING*.md)

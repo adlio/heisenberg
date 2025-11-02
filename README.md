@@ -13,6 +13,7 @@ Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switc
 - **🧠 Smart Inference**: Auto-detects frontend configuration from package.json
 - **⚡ Zero Config**: Works out-of-the-box with sensible defaults
 - **🔧 Process Management**: Handles frontend dev server lifecycle
+- **🔌 WebSocket Proxying**: Transparent HMR support for Vite, Next.js, CRA
 - **📱 SPA Support**: Client-side routing with fallback to index.html
 - **📊 Optional Logging**: Structured diagnostics with `tracing`
 
@@ -63,7 +64,6 @@ That's it! Heisenberg automatically:
 
 ## 📖 Documentation
 
-- **[User Guide](GUIDE.md)** - Comprehensive setup and configuration guide
 - **[API Documentation](https://docs.rs/heisenberg)** - Complete API reference
 - **[Examples](examples/)** - Working examples for different frameworks
 
@@ -143,12 +143,25 @@ RUST_LOG=debug,heisenberg=trace cargo run
 
 ## 🏗️ Examples
 
+- **[SvelteKit](examples/axum-sveltekit/)** - ⭐ Showcase example with WebSocket HMR
 - **[Basic Axum](examples/axum-simple/)** - Simple Axum + React setup
-- **[SvelteKit](examples/axum-sveltekit/)** - Axum + SvelteKit with HMR
-- **[Logging](examples/logging-example/)** - Structured logging example
-- **[Multi-SPA](examples/multi-spa/)** - Multiple frontend applications
+- **[Multi-SPA](examples/axum-multi-spa/)** - Multiple frontend applications
 - **[Actix-web](examples/actix-react/)** - Actix-web integration
 - **[Rocket](examples/rocket-vue/)** - Rocket integration
+- **[Logging](examples/logging-example/)** - Structured logging example
+
+## 🧪 Testing
+
+```bash
+# Run all tests including WebSocket proxying
+cargo test
+
+# Run specific WebSocket test
+cargo test --test websocket_proxy
+
+# Try the showcase example
+cd examples/axum-sveltekit && cargo run
+```
 
 ## 🤝 Contributing
 

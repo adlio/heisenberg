@@ -57,6 +57,7 @@ assert_matches = "1.5"
 httpmock = "0.7"
 criterion = { version = "0.5", features = ["html_reports"] }
 cargo-husky = { version = "1.5", default-features = false, features = ["precommit-hook", "run-cargo-test", "run-cargo-fmt", "run-cargo-clippy"] }
+axum = "0.7"
 
 [build-dependencies]
 # For build.rs asset embedding logic

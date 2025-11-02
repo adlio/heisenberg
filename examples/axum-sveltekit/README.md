@@ -1,30 +1,50 @@
 # Heisenberg + Axum + SvelteKit Example
 
-A minimal but realistic todo application demonstrating Heisenberg's dual-mode serving capabilities with modern SvelteKit and Axum.
+**The showcase example** demonstrating Heisenberg's seamless developer experience.
 
-## Features Demonstrated
+## ✨ The Magic
 
-- **Dual-mode serving**: Seamless switching between development (proxy) and production (embedded) modes
-- **SvelteKit integration**: Client-side routing with SPA fallback support
-- **Modern SvelteKit**: Uses Svelte 5 runes and latest SvelteKit features
-- **API integration**: RESTful JSON API with Axum backend
-- **Hot Module Replacement**: Full HMR support in development mode
-- **Single binary deployment**: Production builds embed all assets
+```bash
+cargo run
+```
+
+One command. Zero configuration. Full-stack development bliss.
+
+Heisenberg automatically:
+- Detects your frontend from `package.json`
+- Installs dependencies if needed
+- Starts Vite dev server
+- Proxies WebSocket for HMR
+- Merges logs from Rust + Vite
+
+## Features
+
+- **Zero Config**: No manual setup, works out of the box
+- **WebSocket HMR**: Hot reload through transparent proxying
+- **Unified Logs**: See both servers in one terminal
+- **Production Ready**: Single binary with embedded assets
+- **Modern Stack**: Svelte 5 + SvelteKit + Axum
 
 ## Quick Start
 
 ```bash
-# Development mode (proxy + HMR)
+# One command - that's it!
 cargo run
-
-# Production mode (test embedded assets)
-HEISENBERG_MODE=embed cargo run
-
-# Build for production
-cargo build --release
 ```
 
-Visit http://127.0.0.1:3000 to see the todo app in action.
+Heisenberg automatically:
+- ✅ Detects your `package.json` and finds `npm run dev`
+- ✅ Starts the Vite dev server
+- ✅ Proxies frontend requests (including WebSocket HMR)
+- ✅ Opens your browser to http://127.0.0.1:3001
+
+**Production mode:**
+```bash
+cargo build --release
+./target/release/axum-sveltekit
+```
+
+Single binary with embedded assets - no Node.js required!
 
 ## Architecture
 
@@ -47,10 +67,12 @@ Visit http://127.0.0.1:3000 to see the todo app in action.
 
 ### Development Mode
 1. `cargo run` starts the Rust server
-2. Heisenberg automatically starts the Vite dev server (`npm run dev`)
-3. Frontend requests are proxied to Vite (port 5173)
-4. API requests go directly to Rust backend
-5. Full HMR and fast refresh enabled
+2. Heisenberg detects `web/package.json` and runs `npm run dev`
+3. Vite dev server starts on port 5173
+4. Frontend requests → proxied to Vite
+5. API requests → handled by Rust backend
+6. WebSocket HMR → proxied transparently for hot reload
+7. Browser opens automatically
 
 ### Production Mode
 1. Frontend assets are built and embedded during compilation
@@ -100,21 +122,20 @@ export default {
 };
 ```
 
-### Vite HMR Configuration
-**Important:** Configure Vite to connect HMR directly to the dev server:
+## WebSocket HMR Proxying
 
-```javascript
-// vite.config.js
-export default defineConfig({
-    plugins: [sveltekit()],
-    server: {
-        hmr: {
-            clientPort: 5173  // Connect HMR directly, not through proxy
-        }
-    }
-});
-```
+Heisenberg automatically proxies WebSocket connections for Vite's Hot Module Replacement:
 
-Without this, Vite's HMR websocket will try to connect through the Rust proxy, causing constant page refreshes.
+- Vite's HMR WebSocket connects through the Rust proxy
+- Changes to `.svelte` files trigger instant updates
+- No page refresh needed
+- Works transparently - zero configuration
 
-This example showcases Heisenberg's core value proposition: write once, deploy anywhere with automatic mode detection and zero configuration complexity.
+## Testing the Experience
+
+1. Run `cargo run`
+2. Edit `web/src/routes/+page.svelte`
+3. Watch changes appear instantly without page reload
+4. Check terminal - see merged logs from Rust + Vite
+
+This showcases Heisenberg's core value: **one command, seamless development, production-ready builds**.
