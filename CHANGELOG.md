@@ -17,12 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tower Integration**: Native Tower layer and service implementation
 - **Framework Adapters**: Helper functions for Actix-web and Rocket
 - **Smart Configuration**: Fluent builder API with package.json inference
-- **Mode Detection**: Automatic dev/prod mode switching based on build profile
+- **Mode Detection**: Automatic proxy/embed mode switching based on build profile
 - **Process Management**: Automatic frontend dev server lifecycle management
-- **Asset Embedding**: Production-ready static asset serving with rust-embed
+- **Asset Embedding**: Embed-mode static asset serving with rust-embed
 - **SPA Support**: Client-side routing with fallback to index.html
 - **Health Checking**: Out-of-band monitoring of frontend dev servers
-- **Browser Opening**: Automatic browser launch in development mode
+- **Browser Opening**: Automatic browser launch in proxy mode
 - **Multi-SPA Support**: Multiple frontend applications with different routes
 - **Structured Logging**: Optional tracing integration for diagnostics
 

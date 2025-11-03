@@ -58,8 +58,8 @@ cargo build --release && ./target/release/your-app
 That's it! Heisenberg automatically:
 - 🔍 Finds your `package.json` and extracts the dev command
 - 🚀 Starts your frontend dev server (`npm run dev`)
-- 🔗 Proxies frontend requests in development
-- 📦 Embeds assets for production builds
+- 🔗 Proxies frontend requests in proxy mode
+- 📦 Embeds assets for embed mode builds
 - 🌐 Opens your browser automatically
 
 ## 📖 Documentation

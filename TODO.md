@@ -2,12 +2,12 @@
 
 Progress tracking for critical functionality gaps.
 
-## ✅ COMPLETED (merged to development branch)
+## ✅ COMPLETED
 
 ### 1. Tower Service Implementation
 - [x] Implement actual routing logic based on Mode
-- [x] Call ProxyService in Development mode
-- [x] Call StaticFileService in Production mode
+- [x] Call ProxyService in Proxy mode
+- [x] Call StaticFileService in Embed mode
 - [x] Handle response type conversions (Body types)
 - [x] Implement SPA fallback logic
 
@@ -45,12 +45,14 @@ Progress tracking for critical functionality gaps.
 - [ ] Handle slow-starting dev servers
 
 ### 7. WebSocket Support for HMR
-**Status:** Not implemented
+**Status:** ✅ Implemented
 
-**What's needed:**
-- [ ] Detect WebSocket upgrade requests
-- [ ] Forward WebSocket connections to dev server
-- [ ] Handle WebSocket frames bidirectionally
+**Completed:**
+- [x] Detect WebSocket upgrade requests
+- [x] Forward WebSocket connections to dev server
+- [x] Handle WebSocket frames bidirectionally
+- [x] Automated testing with echo server
+- [x] Working in axum-sveltekit example
 
 ### 8. Process Output Capture
 **Status:** Not implemented
@@ -105,16 +107,16 @@ Progress tracking for critical functionality gaps.
 - ✅ Proxy to dev servers with headers
 - ✅ SPA fallback routing
 - ✅ Auto-start dev servers
-- ✅ Mode detection (dev vs prod)
+- ✅ Mode detection (proxy vs embed)
 - ✅ Works with Axum and SvelteKit
+- ✅ WebSocket support for HMR
+- ✅ Process output capture (stdout/stderr inherit)
 
 **What's Missing:**
-- ❌ WebSocket support for HMR
-- ❌ Process output capture/logging
-- ❌ Comprehensive testing
+- ❌ Comprehensive testing across all frameworks
+- ❌ More example applications
 
 **Estimated Remaining Work:**
-- WebSocket support: ~1 day
-- Process output: ~0.5 day
 - Testing & docs: ~1 day
-- Total: ~2-3 days to v0.2 release
+- Additional examples: ~1 day
+- Total: ~2 days to v0.2 release
