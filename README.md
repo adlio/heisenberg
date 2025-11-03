@@ -28,9 +28,10 @@ axum = "0.7"
 tokio = { version = "1.35", features = ["full"] }
 rust-embed = "8.0"  # Required by embed_spa_assets! macro
 ctor = "0.2"        # Required by embed_spa_assets! macro
+paste = "1.0"       # Required by embed_spa_assets! macro
 ```
 
-**Note:** `rust-embed` and `ctor` are required because `embed_spa_assets!()` uses `#[derive(RustEmbed)]`, a proc macro that must run in your crate's compilation context.
+**Note:** These dependencies are required because `embed_spa_assets!()` uses proc macros that must run in your crate's compilation context.
 
 ### 2. Basic setup
 
@@ -41,9 +42,10 @@ use heisenberg::HeisenbergLayer;
 #[tokio::main]
 async fn main() {
     // Embed assets and configure
-    let config = heisenberg::embed_spa_assets!("./dist").build();
+    let app = heisenberg::embed_spa!("./dist");
+    let config = Heisenberg::new().route("/*", app).build();
     
-    let app = Router::new()
+    let router = Router::new()
         .route("/api/hello", get(|| async { "Hello API!" }))
         .layer(HeisenbergLayer::new(config));
 
@@ -157,18 +159,14 @@ Both `embed_spa_assets!()` and `.spa()` must point to wherever your build output
 
 ### Multiple SPAs
 ```rust
-// Embed each SPA's assets
-heisenberg::embed_spa_assets!("./admin/dist");
-heisenberg::embed_spa_assets!("./app/dist");
+// Embed each SPA with unique identifiers
+let admin = heisenberg::embed_spa!("./admin/dist", admin);
+let app = heisenberg::embed_spa!("./app/dist", app);
 
-// Configure with custom route patterns
+// Configure with route patterns
 let config = Heisenberg::new()
-    .spa("./admin/dist")
-        .pattern("/admin/*")
-        .dev_server("http://localhost:3001")
-    .spa("./app/dist")
-        .pattern("/*")
-        .dev_server("http://localhost:3000")
+    .route("/admin/*", admin)
+    .route("/*", app)
     .build();
 ```
 

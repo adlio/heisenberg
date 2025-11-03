@@ -1,52 +1,47 @@
 //! Macros for embedding assets
 
-/// Embed assets and start building Heisenberg config
+/// Embed SPA assets and return a handle
 ///
-/// This macro generates a RustEmbed struct, registers it, and returns a builder
-/// that you can configure further before calling `.build()`.
+/// This macro embeds assets from a SPA directory and returns an `EmbeddedSpa` handle
+/// that you pass to `Heisenberg::spa()` for configuration.
 ///
-/// # Simple Example (single SPA)
-///
-/// ```ignore
-/// let config = heisenberg::embed_spa_assets!("./dist").build();
-/// ```
-///
-/// # Multiple SPAs
+/// # Examples
 ///
 /// ```ignore
-/// heisenberg::embed_spa_assets!("./admin/dist");
-/// heisenberg::embed_spa_assets!("./app/dist");
-///
+/// // Single SPA
+/// let app = heisenberg::embed_spa!("./web");
 /// let config = Heisenberg::new()
-///     .spa("./admin/dist").pattern("/admin/*")
-///     .spa("./app/dist").pattern("/*")
+///     .spa("/*", app)
 ///     .build();
-/// ```
 ///
-/// # Custom Route Pattern
-///
-/// ```ignore
-/// let config = heisenberg::embed_spa_assets!("./dist")
-///     .pattern("/app/*")
+/// // Multiple SPAs with unique identifiers
+/// let admin = heisenberg::embed_spa!("./web/admin", admin);
+/// let user = heisenberg::embed_spa!("./web/user", user);
+/// let config = Heisenberg::new()
+///     .spa("/admin/*", admin)
+///     .spa("/*", user)
 ///     .build();
 /// ```
 #[macro_export]
-macro_rules! embed_spa_assets {
-    ($folder:expr) => {{
-        const _: () = {
+macro_rules! embed_spa {
+    ($spa_dir:expr) => {
+        $crate::embed_spa!($spa_dir, __default)
+    };
+    ($spa_dir:expr, $id:ident) => {{
+        $crate::paste::paste! {
             #[derive($crate::rust_embed::RustEmbed)]
-            #[folder = $folder]
-            struct __HeisenbergEmbeddedAssets;
+            #[folder = $spa_dir]
+            struct [<__HeisenbergEmbeddedAssets_ $id>];
 
             #[$crate::ctor::ctor]
-            fn __register_heisenberg_assets() {
+            fn [<__register_heisenberg_assets_ $id>]() {
                 $crate::services::embed_registry::register_embedded_assets(
-                    $folder,
-                    |path: &str| __HeisenbergEmbeddedAssets::get(path).map(|f| f.data.to_vec()),
+                    $spa_dir,
+                    |path: &str| [<__HeisenbergEmbeddedAssets_ $id>]::get(path).map(|f| f.data.to_vec()),
                 );
             }
-        };
+        }
 
-        $crate::Heisenberg::new().spa($folder)
+        $crate::EmbeddedSpa::new($spa_dir, "")
     }};
 }

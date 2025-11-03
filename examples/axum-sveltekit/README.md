@@ -170,9 +170,10 @@ Your Cargo.toml needs these for asset embedding:
 heisenberg = { version = "0.2", features = ["tower"] }
 rust-embed = "8.0"  # Required by embed_spa_assets! macro
 ctor = "0.2"        # Required by embed_spa_assets! macro
+paste = "1.0"       # Required by embed_spa_assets! macro
 ```
 
-**Why are these required?** The `embed_spa_assets!()` macro uses `#[derive(RustEmbed)]` which is a proc macro that must run in your crate's context, requiring `rust-embed` as a direct dependency.
+**Why are these required?** The `embed_spa_assets!()` macro uses proc macros that must run in your crate's compilation context.
 
 ## WebSocket HMR Proxying
 

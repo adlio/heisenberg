@@ -54,6 +54,7 @@ pub mod adapters;
 
 // Re-export main types
 pub use crate::core::config::{Heisenberg, SpaRouteBuilder};
+pub use crate::core::embedded_spa::EmbeddedSpa;
 pub use crate::error::HeisenbergError;
 
 #[cfg(feature = "tower")]
@@ -62,6 +63,8 @@ pub use crate::tower::{HeisenbergLayer, HeisenbergService};
 // Re-export dependencies needed by macros
 #[doc(hidden)]
 pub use ctor;
+#[doc(hidden)]
+pub use paste;
 #[doc(hidden)]
 pub use rust_embed;
 

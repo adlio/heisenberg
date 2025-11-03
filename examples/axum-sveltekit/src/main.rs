@@ -71,7 +71,8 @@ async fn main() {
         .with_state(store);
 
     // Embed assets and configure Heisenberg
-    let config = heisenberg::embed_spa_assets!("./web/build").build();
+    let app = heisenberg::embed_spa!("./web/build");
+    let config = heisenberg::Heisenberg::new().route("/*", app).build();
 
     let app = Router::new()
         .nest("/api", api_routes)
