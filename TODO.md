@@ -1,150 +1,99 @@
 # Heisenberg TODO
 
-Progress tracking for critical functionality gaps.
+Progress tracking for future enhancements.
 
-## ✅ COMPLETED
+## ✅ COMPLETED (v0.2.0)
 
-### 1. Tower Service Implementation
-- [x] Implement actual routing logic based on Mode
-- [x] Call ProxyService in Proxy mode
-- [x] Call StaticFileService in Embed mode
-- [x] Handle response type conversions (Body types)
-- [x] Implement SPA fallback logic
+### Core Features
+- [x] Tower Service Implementation with routing logic
+- [x] Static File Service with SPA fallback
+- [x] Process Management with auto-start
+- [x] Proxy Service with headers and query strings
+- [x] **WebSocket Proxying** - Full HMR support for Vite, Next.js, CRA
+- [x] **Blocking Dev Server Startup** - Prevents race conditions
+- [x] **Port Auto-Detection** - Reads from vite.config.js and package.json
+- [x] **Graceful Shutdown** - SIGINT handler for dev server cleanup
+- [x] Mode detection (proxy vs embed)
+- [x] Health checking for dev servers
+- [x] Browser auto-open
+- [x] Process output capture (stdout/stderr inherit)
 
-### 2. Static File Service
-- [x] Read files from filesystem
-- [x] Path traversal protection
-- [x] MIME type detection
-- [x] SPA fallback to index.html for 404s
-- [x] Handle binary files (images, fonts, etc.)
+### Testing & Examples
+- [x] WebSocket proxy tests
+- [x] Integration tests for all core features
+- [x] Working examples: axum-simple, axum-sveltekit, axum-multi-spa
+- [x] Logging example
+- [x] WebSocket demo example
 
-### 3. Response Type Compatibility
-- [x] Update services to return Response<Body>
-- [x] Generic over body types for framework compatibility
-- [x] Properly convert between hyper body types
+### Documentation
+- [x] Complete README with examples
+- [x] API documentation
+- [x] CHANGELOG for v0.2.0
+- [x] Clear error messages across all examples
 
-### 4. Process Management
-- [x] Integrate ProcessManager into tower service
-- [x] Auto-start dev servers in development mode
-- [x] Process lifecycle management (start, stop, cleanup)
+## 🔧 Future Enhancements
 
-### 5. Proxy Service Enhancements
-- [x] Forward request headers properly
-- [x] Preserve response headers from dev server
-- [x] Support query strings
-- [x] Handle binary responses (use bytes() not text())
+### Framework Support
+- [ ] Test actix-react example thoroughly
+- [ ] Test rocket-vue example thoroughly
+- [ ] Add Warp example
+- [ ] Document framework-specific patterns
 
-## 🔧 Important - Remaining Work
+### Configuration
+- [ ] Support monorepo structures
+- [ ] Support more build tools (pnpm, bun, deno)
+- [ ] Add configuration file support (heisenberg.toml)
+- [ ] Environment-specific configuration
 
-### 6. Startup Order Fix
-**Status:** In Progress
+### Developer Experience
+- [ ] Better dev server output formatting
+- [ ] Configurable health check endpoints
+- [ ] Configurable health check timeout
+- [ ] Dev server restart on crash
+- [ ] Hot reload configuration changes
 
-**Problem:** Dev servers start in background while Rust server binds port, causing race conditions and confusing errors.
+### Advanced Features
+- [ ] Multiple dev servers per SPA (e.g., API + frontend)
+- [ ] Custom proxy middleware
+- [ ] Request/response transformation hooks
+- [ ] Metrics and monitoring
+- [ ] Rate limiting for dev mode
 
-**Solution:** Block in HeisenbergLayer::new() to start dev servers synchronously before any framework binds ports.
+### Testing
+- [ ] Performance benchmarks
+- [ ] Load testing for proxy mode
+- [ ] Cross-platform testing (Windows, Linux, macOS)
+- [ ] Integration tests with real frontend frameworks
 
-**Implementation Plan:**
-1. Move dev server startup from async spawn to blocking call in layer constructor
-2. Use `tokio::runtime::Handle::current().block_on()` to wait for:
-   - Dev server process start
-   - Health check confirmation
-3. Only return from constructor once dev servers are ready
-4. Works for ALL frameworks (Axum, Actix, Rocket) - same API
+### Documentation
+- [ ] Video tutorials
+- [ ] Migration guides from other solutions
+- [ ] Troubleshooting guide
+- [ ] Best practices guide
+- [ ] Architecture documentation
 
-**Benefits:**
-- ✅ Dev servers always start before Rust server binds port
-- ✅ Clear error messages if dev server fails to start
-- ✅ No race conditions or port conflicts
-- ✅ Same simple API for all frameworks
-- ✅ Fail-fast behavior in proxy mode
+## 📊 Known Limitations
 
-**Tasks:**
-- [ ] Refactor tower/service.rs to block in constructor
-- [ ] Test with Axum example
-- [ ] Verify error messages are clear
-- [ ] Update documentation
+### Accepted Trade-offs
+- Dev servers may be orphaned on CTRL-C (acceptable for development)
+- Dynamic port configuration (variables in vite.config.js) requires manual `.dev_server()` override
+- Tests must run with `--test-threads=1` due to OnceLock state sharing
 
-### 7. Health Checking
-**Status:** Implemented but needs verification
+### Future Improvements
+- Better cleanup of orphaned processes
+- JavaScript AST parser for complex vite.config.js (if demand exists)
+- Parallel test execution support
 
-**What's needed:**
-- [ ] Test with various dev servers (Vite, webpack-dev-server, etc.)
-- [ ] Add configurable health check endpoints
-- [ ] Handle slow-starting dev servers
+## 🎯 Next Release (v0.3.0)
 
-### 8. WebSocket Support for HMR
-**Status:** ✅ Implemented
+Potential focus areas:
+1. **Stability**: Comprehensive cross-platform testing
+2. **DX**: Better error messages and debugging tools
+3. **Examples**: More framework examples and real-world patterns
+4. **Performance**: Benchmarks and optimizations
 
-**Completed:**
-- [x] Detect WebSocket upgrade requests
-- [x] Forward WebSocket connections to dev server
-- [x] Handle WebSocket frames bidirectionally
-- [x] Automated testing with echo server
-- [x] Working in axum-sveltekit example
+## 📝 Notes
 
-### 9. Process Output Capture
-**Status:** Not implemented
-
-**What's needed:**
-- [ ] Capture stdout/stderr from dev server processes
-- [ ] Log dev server output with tracing
-- [ ] Display errors when dev server fails to start
-
-## 📚 Nice to Have
-
-### 10. Configuration Inference
-**Status:** Partially implemented
-
-**What's needed:**
-- [ ] Test package.json parsing with more frameworks
-- [ ] Handle monorepo structures
-- [ ] Support more build tools (pnpm, bun, etc.)
-
-### 11. Browser Auto-Open
-**Status:** Implemented but needs testing
-
-**What's needed:**
-- [ ] Verify works on all platforms (macOS, Linux, Windows)
-- [ ] Handle cases where browser can't be opened
-
-## 🧪 Testing Needed
-
-### 12. Integration Tests
-- [ ] Test with real Axum applications ✅ (basic test done)
-- [ ] Test with real frontend builds ✅ (React, SvelteKit tested)
-- [ ] Test development mode with actual dev servers
-- [ ] Test SPA routing and fallback behavior ✅ (verified)
-
-### 13. Example Applications
-- [x] Verify axum-simple works
-- [x] Verify axum-sveltekit works
-- [ ] Test other examples (actix-react, rocket-vue)
-
-## 📝 Documentation
-
-### 14. Update Documentation
-- [ ] Document actual working API
-- [ ] Add troubleshooting guide
-- [ ] Document layer ordering for API routes
-- [ ] Add migration examples
-
-## Summary
-
-**What Works:**
-- ✅ Static file serving from filesystem
-- ✅ Proxy to dev servers with headers
-- ✅ SPA fallback routing
-- ✅ Auto-start dev servers
-- ✅ Mode detection (proxy vs embed)
-- ✅ Works with Axum and SvelteKit
-- ✅ WebSocket support for HMR
-- ✅ Process output capture (stdout/stderr inherit)
-
-**What's Missing:**
-- ❌ Comprehensive testing across all frameworks
-- ❌ More example applications
-
-**Estimated Remaining Work:**
-- Testing & docs: ~1 day
-- Additional examples: ~1 day
-- Total: ~2 days to v0.2 release
+- v0.2.0 released 2025-11-02 with WebSocket support and blocking startup
+- All critical features for production use are implemented
+- Focus shifting to polish, testing, and additional framework support
