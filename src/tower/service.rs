@@ -75,6 +75,7 @@ impl<S> HeisenbergService<S> {
                     let _ = pm_cleanup.stop_all_processes();
                 });
 
+                // Start dev servers in background but log errors
                 for route in config.routes() {
                     let route_id = route.pattern.clone();
                     let command = route.dev_command.clone();
@@ -94,9 +95,9 @@ impl<S> HeisenbergService<S> {
                             )
                             .await
                         {
-                            #[cfg(feature = "logging")]
-                            debug!(error = %e, "Failed to start dev server");
-                            eprintln!("Warning: Failed to start dev server: {}", e);
+                            eprintln!("❌ Failed to start dev server: {}", e);
+                            eprintln!("   This will cause proxy requests to fail.");
+                            eprintln!("   Check the error above and fix the configuration.");
                         }
                     });
                 }
