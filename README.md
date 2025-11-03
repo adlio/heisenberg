@@ -8,7 +8,7 @@ Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switc
 
 ## ✨ Features
 
-- **🔄 Dual Mode**: Automatic dev/prod mode switching
+- **🔄 Dual Mode**: Automatic proxy/embed mode switching
 - **🎯 Framework Agnostic**: Works with Axum, Warp, Actix-web, Rocket, and more
 - **🧠 Smart Inference**: Auto-detects frontend configuration from package.json
 - **⚡ Zero Config**: Works out-of-the-box with sensible defaults
