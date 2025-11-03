@@ -59,6 +59,12 @@ pub use crate::error::HeisenbergError;
 #[cfg(feature = "tower")]
 pub use crate::tower::{HeisenbergLayer, HeisenbergService};
 
+// Re-export dependencies needed by macros
+#[doc(hidden)]
+pub use ctor;
+#[doc(hidden)]
+pub use rust_embed;
+
 #[cfg(test)]
 mod tests {
     use super::*;

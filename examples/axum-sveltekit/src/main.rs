@@ -10,10 +10,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-// Embed frontend assets into the binary at compile time
-// This makes the release binary completely standalone
-heisenberg::embed_spa_assets!("./web/build");
-
 type TodoStore = Arc<Mutex<HashMap<u32, Todo>>>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,7 +70,8 @@ async fn main() {
         .route("/todos/:id/toggle", post(toggle_todo))
         .with_state(store);
 
-    let config = heisenberg::Heisenberg::new().spa("./web/build").build();
+    // Embed assets and configure Heisenberg in one line
+    let config = heisenberg::embed_spa_assets!("./web/build");
 
     let app = Router::new()
         .nest("/api", api_routes)

@@ -103,24 +103,17 @@ axum-sveltekit/
 
 ## Key Configuration
 
-### Asset Embedding
+### One-Line Setup
 ```rust
-// At the top of main.rs - embeds assets at compile time
-heisenberg::embed_spa_assets!("./web/build");
-```
-
-**The path must match your build output directory and the `.spa()` configuration below.**
-
-### Heisenberg Setup
-```rust
-let config = heisenberg::Heisenberg::new()
-    .spa("./web/build")  // Must match embed_spa_assets! path
-    .build();
+// Embeds assets and configures Heisenberg in one line
+let config = heisenberg::embed_spa_assets!("./web/build");
 
 let app = Router::new()
     .nest("/api", api_routes)
     .layer(heisenberg::HeisenbergLayer::new(config));
 ```
+
+**The path must match your build output directory.**
 
 ### SvelteKit Static Adapter
 ```javascript
@@ -156,12 +149,8 @@ The `embed_spa_assets!()` macro path must point to wherever your build outputs f
 If your build outputs to a different location:
 
 ```rust
-// In src/main.rs - both paths must match
-heisenberg::embed_spa_assets!("./web/dist");
-
-let config = heisenberg::Heisenberg::new()
-    .spa("./web/dist")
-    .build();
+// In src/main.rs
+let config = heisenberg::embed_spa_assets!("./web/dist");
 ```
 
 ```javascript
@@ -179,9 +168,11 @@ Your Cargo.toml needs these for asset embedding:
 ```toml
 [dependencies]
 heisenberg = { version = "0.2", features = ["tower"] }
-rust-embed = "8.0"
-ctor = "0.2"
+rust-embed = "8.0"  # Required by embed_spa_assets! macro
+ctor = "0.2"        # Required by embed_spa_assets! macro
 ```
+
+**Why are these required?** The `embed_spa_assets!()` macro uses `#[derive(RustEmbed)]` which is a proc macro that must run in your crate's context, requiring `rust-embed` as a direct dependency.
 
 ## WebSocket HMR Proxying
 

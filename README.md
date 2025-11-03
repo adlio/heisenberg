@@ -26,24 +26,26 @@ Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switc
 heisenberg = "0.2"
 axum = "0.7"
 tokio = { version = "1.35", features = ["full"] }
-rust-embed = "8.0"  # For asset embedding
-ctor = "0.2"        # For asset embedding
+rust-embed = "8.0"  # Required by embed_spa_assets! macro
+ctor = "0.2"        # Required by embed_spa_assets! macro
 ```
+
+**Note:** `rust-embed` and `ctor` are required because `embed_spa_assets!()` uses `#[derive(RustEmbed)]`, a proc macro that must run in your crate's compilation context.
 
 ### 2. Basic setup
 
 ```rust
 use axum::{routing::get, Router};
-use heisenberg::{Heisenberg, HeisenbergLayer};
-
-// Embed assets into binary at compile time
-heisenberg::embed_spa_assets!("./dist");
+use heisenberg::HeisenbergLayer;
 
 #[tokio::main]
 async fn main() {
+    // Embed assets and configure - one line!
+    let config = heisenberg::embed_spa_assets!("./dist");
+    
     let app = Router::new()
         .route("/api/hello", get(|| async { "Hello API!" }))
-        .layer(HeisenbergLayer::new(Heisenberg::new().spa("./dist").build()));
+        .layer(HeisenbergLayer::new(config));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     
@@ -114,14 +116,24 @@ Heisenberg::new().spa("./dist").build()
 ```
 
 ### Advanced Configuration
+For custom dev server settings:
+
 ```rust
-Heisenberg::new()
-    .spa("./frontend/dist")                   // Must match build output directory
+use heisenberg::Heisenberg;
+
+// Embed assets (required for production)
+heisenberg::embed_spa_assets!("./frontend/dist");
+
+// Configure with custom settings
+let config = Heisenberg::new()
+    .spa("./frontend/dist")
         .dev_server("http://localhost:3000")  // Override auto-detected port
         .dev_command(["npm", "run", "dev"])   // Override auto-detected command
         .open_browser(true)
-    .build()
+    .build();
 ```
+
+**Note:** Advanced configuration requires specifying the path twice - once for embedding, once for configuration.
 
 **Port Detection:** Heisenberg automatically detects dev server ports from:
 - CLI flags in package.json scripts (`--port 3000`, `-p 5173`)
