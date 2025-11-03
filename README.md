@@ -41,7 +41,16 @@ async fn main() {
         .layer(HeisenbergLayer::new(Heisenberg::new().spa("./dist").build()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    
+    // Graceful shutdown cleans up dev servers on Ctrl+C
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+}
+
+async fn shutdown_signal() {
+    let _ = tokio::signal::ctrl_c().await;
 }
 ```
 
