@@ -131,11 +131,62 @@ Heisenberg automatically proxies WebSocket connections for Vite's Hot Module Rep
 - No page refresh needed
 - Works transparently - zero configuration
 
-## Testing the Experience
+## Verifying It Works
 
-1. Run `cargo run`
-2. Edit `web/src/routes/+page.svelte`
-3. Watch changes appear instantly without page reload
-4. Check terminal - see merged logs from Rust + Vite
+### Development Mode
+```bash
+cargo run
+```
 
-This showcases Heisenberg's core value: **one command, seamless development, production-ready builds**.
+**Expected behavior:**
+- Rust server starts on port 3001
+- Heisenberg detects `web/package.json` and runs `npm run dev`
+- Vite dev server starts automatically on port 5173
+- Browser opens to http://127.0.0.1:3001
+- Todo app loads and is fully functional
+
+### Hot Module Replacement
+While `cargo run` is running, edit `web/src/routes/+page.svelte` (change a heading or add text).
+
+**Expected behavior:**
+- Changes appear instantly (< 1 second)
+- No page refresh required
+- Todo state is preserved
+- Terminal shows Vite HMR update logs
+
+### API Integration
+In the browser:
+1. Add a todo item
+2. Toggle its completion status
+3. Check browser DevTools Network tab
+
+**Expected behavior:**
+- `POST /api/todos` creates the todo
+- `POST /api/todos/:id/toggle` toggles completion
+- Rust logs show API requests
+- Frontend updates immediately
+
+### Production Build
+```bash
+cargo build --release
+./target/release/axum-sveltekit
+```
+
+**Expected behavior:**
+- Single binary runs without external dependencies
+- No Vite server starts
+- Assets served from embedded files
+- App works identically to development mode
+- No Node.js required
+
+## Troubleshooting
+
+**"npm: command not found"**
+→ Install Node.js first
+
+**Port 5173 already in use**
+→ Kill existing Vite: `lsof -ti:5173 | xargs kill`
+
+**HMR not working**
+→ Check browser console for WebSocket errors
+→ Verify Vite started (check terminal logs)
