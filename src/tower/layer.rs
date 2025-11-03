@@ -6,8 +6,6 @@ use crate::services::process::ProcessManager;
 use crate::tower::service::HeisenbergService;
 use std::sync::Arc;
 use tower_layer::Layer;
-#[cfg(feature = "logging")]
-use tracing::debug;
 
 /// Tower layer for Heisenberg dual-mode serving
 #[derive(Clone)]
@@ -45,24 +43,12 @@ impl HeisenbergLayer {
             let pm = PM.get_or_init(|| {
                 let pm = Arc::new(ProcessManager::new());
 
-                // Start dev servers and keep runtime alive for signal handling
+                // Start dev servers in blocking thread
                 let pm_clone = pm.clone();
                 let routes = config.routes().to_vec();
 
                 std::thread::spawn(move || {
                     let rt = tokio::runtime::Runtime::new().unwrap();
-
-                    // Register CTRL-C handler
-                    let pm_cleanup = pm_clone.clone();
-                    rt.spawn(async move {
-                        let _ = tokio::signal::ctrl_c().await;
-                        #[cfg(feature = "logging")]
-                        debug!("Received SIGINT, cleaning up dev servers");
-                        let _ = pm_cleanup.stop_all_processes();
-                        std::process::exit(0);
-                    });
-
-                    // Start dev servers
                     rt.block_on(async {
                         for route in routes {
                             if let Err(e) = pm_clone
@@ -82,10 +68,9 @@ impl HeisenbergLayer {
                             }
                         }
                     });
-
-                    // Keep runtime alive to handle signals
-                    std::thread::park();
-                });
+                })
+                .join()
+                .unwrap();
 
                 pm
             });
