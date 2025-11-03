@@ -65,6 +65,17 @@ impl<S> HeisenbergService<S> {
 
             PM.get_or_init(|| {
                 let pm = Arc::new(ProcessManager::new());
+
+                // Register signal handler for cleanup
+                let pm_cleanup = pm.clone();
+                tokio::spawn(async move {
+                    let _ = tokio::signal::ctrl_c().await;
+                    #[cfg(feature = "logging")]
+                    debug!("Received SIGINT, cleaning up dev servers");
+                    let _ = pm_cleanup.stop_all_processes();
+                    std::process::exit(0);
+                });
+
                 for route in config.routes() {
                     let route_id = route.pattern.clone();
                     let command = route.dev_command.clone();
