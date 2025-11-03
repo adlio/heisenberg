@@ -27,6 +27,7 @@ Heisenberg automatically:
 
 ## Quick Start
 
+### Development Mode (Proxy)
 ```bash
 # One command - that's it!
 cargo run
@@ -38,13 +39,17 @@ Heisenberg automatically:
 - ✅ Proxies frontend requests (including WebSocket HMR)
 - ✅ Opens your browser to http://127.0.0.1:3001
 
-**Production mode:**
+### Production Mode (Embed)
 ```bash
+# Build frontend assets first
+cd web && npm run build && cd ..
+
+# Then build and run Rust binary
 cargo build --release
 ./target/release/axum-sveltekit
 ```
 
-Single binary with embedded assets - no Node.js required!
+The Rust binary serves pre-built assets from `./web/build` - no Node.js required at runtime!
 
 ## Architecture
 
@@ -75,10 +80,10 @@ Single binary with embedded assets - no Node.js required!
 7. Browser opens automatically
 
 ### Production Mode
-1. Frontend assets are built and embedded during compilation
-2. Single binary contains both backend and frontend
+1. Frontend assets must be built first: `cd web && npm run build`
+2. Rust binary reads from `./web/build` directory at runtime
 3. SPA fallback ensures client-side routing works
-4. No external dependencies required for deployment
+4. No Node.js required at runtime (but build directory must be present)
 
 ## Project Structure
 
@@ -100,12 +105,16 @@ axum-sveltekit/
 
 ### Heisenberg Setup
 ```rust
+let config = heisenberg::Heisenberg::new()
+    .spa("./web/build")  // Must match your build output directory
+    .build();
+
 let app = Router::new()
     .nest("/api", api_routes)
-    .layer(heisenberg::HeisenbergLayer::new(
-        heisenberg::Heisenberg::new().spa("./web/build").build()
-    ));
+    .layer(heisenberg::HeisenbergLayer::new(config));
 ```
+
+**The `.spa("./web/build")` path must match where your frontend build outputs files.**
 
 ### SvelteKit Static Adapter
 ```javascript
@@ -114,12 +123,60 @@ import adapter from '@sveltejs/adapter-static';
 export default {
     kit: {
         adapter: adapter({
-            pages: 'build',
+            pages: 'build',      // Output directory
             assets: 'build',
             fallback: 'index.html'  // SPA fallback
         })
     }
 };
+```
+
+## Customizing for Your Setup
+
+### Custom Build Command
+If you use a different build command (e.g., `npm run prod`), you need to:
+1. Run it manually before building the Rust binary
+2. Ensure the output directory matches `.spa("./path/to/output")`
+
+```bash
+# Example with custom build command
+cd web && npm run prod && cd ..
+cargo build --release
+```
+
+### Custom Output Directory
+If your build outputs to a different location:
+
+```rust
+// In src/main.rs
+let config = heisenberg::Heisenberg::new()
+    .spa("./web/dist")  // Match your actual output directory
+    .build();
+```
+
+```javascript
+// In svelte.config.js
+adapter: adapter({
+    pages: 'dist',  // Must match Rust config
+    assets: 'dist',
+    fallback: 'index.html'
+})
+```
+
+### Dynamic Build Directories
+If your build outputs to dynamic paths (e.g., `/tmp/2025-11-02`), you have two options:
+
+**Option 1: Use environment variables**
+```rust
+let build_dir = std::env::var("FRONTEND_BUILD_DIR")
+    .unwrap_or_else(|_| "./web/build".to_string());
+let config = heisenberg::Heisenberg::new().spa(&build_dir).build();
+```
+
+**Option 2: Symlink to a stable path**
+```bash
+ln -sf /tmp/2025-11-02 ./web/build
+cargo build --release
 ```
 
 ## WebSocket HMR Proxying
@@ -168,16 +225,20 @@ In the browser:
 
 ### Production Build
 ```bash
+# IMPORTANT: Build frontend first
+cd web && npm run build && cd ..
+
+# Then build Rust binary
 cargo build --release
 ./target/release/axum-sveltekit
 ```
 
 **Expected behavior:**
-- Single binary runs without external dependencies
+- Binary reads from `./web/build` directory at runtime
 - No Vite server starts
-- Assets served from embedded files
+- Assets served from filesystem
 - App works identically to development mode
-- No Node.js required
+- No Node.js required at runtime (but build directory must exist)
 
 ## Troubleshooting
 

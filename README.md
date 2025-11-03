@@ -60,15 +60,16 @@ async fn shutdown_signal() {
 # Proxy mode - forwards to frontend dev server
 cargo run
 
-# Embed mode - serves embedded assets  
+# Embed mode - serves pre-built assets from disk
+# (Build frontend first: cd frontend && npm run build)
 cargo build --release && ./target/release/your-app
 ```
 
 That's it! Heisenberg automatically:
 - 🔍 Finds your `package.json` and extracts the dev command
-- 🚀 Starts your frontend dev server (`npm run dev`)
-- 🔗 Proxies frontend requests in proxy mode
-- 📦 Embeds assets for embed mode builds
+- 🚀 Starts your frontend dev server (`npm run dev`) in proxy mode
+- 🔗 Proxies frontend requests (including WebSocket HMR)
+- 📁 Serves pre-built assets from disk in embed mode
 - 🌐 Opens your browser automatically
 
 ## 📖 Documentation
@@ -110,9 +111,9 @@ Heisenberg::new().spa("./dist").build()
 ### Advanced Configuration
 ```rust
 Heisenberg::new()
-    .spa("./frontend/dist")
+    .spa("./frontend/dist")                   // Must match build output directory
         .dev_server("http://localhost:3000")  // Override auto-detected port
-        .dev_command(["npm", "run", "dev"])
+        .dev_command(["npm", "run", "dev"])   // Override auto-detected command
         .open_browser(true)
     .build()
 ```
@@ -123,6 +124,28 @@ Heisenberg::new()
 - Framework defaults (Vite→5173, Next.js→3000, CRA→3000)
 
 **Note:** Dynamic port configuration (variables, expressions) requires manual override with `.dev_server()`.
+
+### Custom Build Commands
+If you use a custom build command (not `npm run build`):
+
+```bash
+# Run your custom build command first
+cd frontend && npm run prod && cd ..
+
+# Then build Rust binary
+cargo build --release
+```
+
+The `.spa("./path")` must point to wherever your build outputs files.
+
+### Dynamic Build Directories
+For dynamic output paths, use environment variables:
+
+```rust
+let build_dir = std::env::var("FRONTEND_BUILD_DIR")
+    .unwrap_or_else(|_| "./frontend/dist".to_string());
+let config = Heisenberg::new().spa(&build_dir).build();
+```
 
 ### Multiple SPAs
 ```rust
@@ -139,9 +162,11 @@ Heisenberg::new()
 | Build Command | Mode | Behavior |
 |---------------|------|----------|
 | `cargo run` | Proxy | Forward to dev server |
-| `cargo build --release` | Embed | Serve embedded assets |
+| `cargo build --release` | Embed | Serve pre-built assets from disk |
 | `HEISENBERG_MODE=embed cargo run` | Embed | Force embed mode |
 | `HEISENBERG_MODE=proxy cargo build --release` | Proxy | Force proxy mode |
+
+**Important:** Embed mode serves files from the directory specified in `.spa("./path")`. You must build your frontend assets first (e.g., `npm run build`) before running in embed mode.
 
 ## 📊 Debugging
 
