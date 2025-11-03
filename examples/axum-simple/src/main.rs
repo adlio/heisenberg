@@ -21,6 +21,9 @@ async fn main() {
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("Server running on http://{}", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await.expect(&format!(
+        "Failed to bind to {} - port may already be in use",
+        addr
+    ));
     axum::serve(listener, app).await.unwrap();
 }

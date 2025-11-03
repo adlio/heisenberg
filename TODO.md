@@ -2,12 +2,12 @@
 
 Progress tracking for critical functionality gaps.
 
-## ✅ COMPLETED (merged to development branch)
+## ✅ COMPLETED
 
 ### 1. Tower Service Implementation
 - [x] Implement actual routing logic based on Mode
-- [x] Call ProxyService in Development mode
-- [x] Call StaticFileService in Production mode
+- [x] Call ProxyService in Proxy mode
+- [x] Call StaticFileService in Embed mode
 - [x] Handle response type conversions (Body types)
 - [x] Implement SPA fallback logic
 
@@ -36,7 +36,35 @@ Progress tracking for critical functionality gaps.
 
 ## 🔧 Important - Remaining Work
 
-### 6. Health Checking
+### 6. Startup Order Fix
+**Status:** In Progress
+
+**Problem:** Dev servers start in background while Rust server binds port, causing race conditions and confusing errors.
+
+**Solution:** Block in HeisenbergLayer::new() to start dev servers synchronously before any framework binds ports.
+
+**Implementation Plan:**
+1. Move dev server startup from async spawn to blocking call in layer constructor
+2. Use `tokio::runtime::Handle::current().block_on()` to wait for:
+   - Dev server process start
+   - Health check confirmation
+3. Only return from constructor once dev servers are ready
+4. Works for ALL frameworks (Axum, Actix, Rocket) - same API
+
+**Benefits:**
+- ✅ Dev servers always start before Rust server binds port
+- ✅ Clear error messages if dev server fails to start
+- ✅ No race conditions or port conflicts
+- ✅ Same simple API for all frameworks
+- ✅ Fail-fast behavior in proxy mode
+
+**Tasks:**
+- [ ] Refactor tower/service.rs to block in constructor
+- [ ] Test with Axum example
+- [ ] Verify error messages are clear
+- [ ] Update documentation
+
+### 7. Health Checking
 **Status:** Implemented but needs verification
 
 **What's needed:**
@@ -44,15 +72,17 @@ Progress tracking for critical functionality gaps.
 - [ ] Add configurable health check endpoints
 - [ ] Handle slow-starting dev servers
 
-### 7. WebSocket Support for HMR
-**Status:** Not implemented
+### 8. WebSocket Support for HMR
+**Status:** ✅ Implemented
 
-**What's needed:**
-- [ ] Detect WebSocket upgrade requests
-- [ ] Forward WebSocket connections to dev server
-- [ ] Handle WebSocket frames bidirectionally
+**Completed:**
+- [x] Detect WebSocket upgrade requests
+- [x] Forward WebSocket connections to dev server
+- [x] Handle WebSocket frames bidirectionally
+- [x] Automated testing with echo server
+- [x] Working in axum-sveltekit example
 
-### 8. Process Output Capture
+### 9. Process Output Capture
 **Status:** Not implemented
 
 **What's needed:**
@@ -62,7 +92,7 @@ Progress tracking for critical functionality gaps.
 
 ## 📚 Nice to Have
 
-### 9. Configuration Inference
+### 10. Configuration Inference
 **Status:** Partially implemented
 
 **What's needed:**
@@ -70,7 +100,7 @@ Progress tracking for critical functionality gaps.
 - [ ] Handle monorepo structures
 - [ ] Support more build tools (pnpm, bun, etc.)
 
-### 10. Browser Auto-Open
+### 11. Browser Auto-Open
 **Status:** Implemented but needs testing
 
 **What's needed:**
@@ -79,20 +109,20 @@ Progress tracking for critical functionality gaps.
 
 ## 🧪 Testing Needed
 
-### 11. Integration Tests
+### 12. Integration Tests
 - [ ] Test with real Axum applications ✅ (basic test done)
 - [ ] Test with real frontend builds ✅ (React, SvelteKit tested)
 - [ ] Test development mode with actual dev servers
 - [ ] Test SPA routing and fallback behavior ✅ (verified)
 
-### 12. Example Applications
+### 13. Example Applications
 - [x] Verify axum-simple works
 - [x] Verify axum-sveltekit works
 - [ ] Test other examples (actix-react, rocket-vue)
 
 ## 📝 Documentation
 
-### 13. Update Documentation
+### 14. Update Documentation
 - [ ] Document actual working API
 - [ ] Add troubleshooting guide
 - [ ] Document layer ordering for API routes
@@ -105,16 +135,16 @@ Progress tracking for critical functionality gaps.
 - ✅ Proxy to dev servers with headers
 - ✅ SPA fallback routing
 - ✅ Auto-start dev servers
-- ✅ Mode detection (dev vs prod)
+- ✅ Mode detection (proxy vs embed)
 - ✅ Works with Axum and SvelteKit
+- ✅ WebSocket support for HMR
+- ✅ Process output capture (stdout/stderr inherit)
 
 **What's Missing:**
-- ❌ WebSocket support for HMR
-- ❌ Process output capture/logging
-- ❌ Comprehensive testing
+- ❌ Comprehensive testing across all frameworks
+- ❌ More example applications
 
 **Estimated Remaining Work:**
-- WebSocket support: ~1 day
-- Process output: ~0.5 day
 - Testing & docs: ~1 day
-- Total: ~2-3 days to v0.2 release
+- Additional examples: ~1 day
+- Total: ~2 days to v0.2 release

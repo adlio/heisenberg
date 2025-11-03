@@ -1,0 +1,19 @@
+[package]
+name = "websocket-demo"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "websocket-demo"
+path = "src/main.rs"
+
+[[bin]]
+name = "websocket-backend"
+path = "src/backend.rs"
+
+[dependencies]
+heisenberg = { path = "../.." }
+axum = "0.7"
+tokio = { version = "1.35", features = ["full"] }
+tokio-tungstenite = "0.21"
+futures-util = "0.3"

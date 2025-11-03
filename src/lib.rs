@@ -2,8 +2,8 @@
 //!
 //! Framework-agnostic dual-mode web serving for Rust applications.
 //!
-//! Heisenberg provides seamless switching between development mode (proxying to frontend dev servers)
-//! and production mode (serving embedded static assets) without being opinionated about your web framework.
+//! Heisenberg provides seamless switching between proxy mode (forwarding to frontend dev servers)
+//! and embed mode (serving embedded static assets) without being opinionated about your web framework.
 //!
 //! ## Quick Start
 //!
@@ -33,8 +33,8 @@
 //!
 //! ## Mode Detection
 //!
-//! - **Development**: `cargo run` → Proxy to frontend dev server
-//! - **Production**: `cargo build --release` → Serve embedded assets
+//! - **Proxy Mode**: `cargo run` → Forward to frontend dev server
+//! - **Embed Mode**: `cargo build --release` → Serve embedded assets
 //! - **Override**: `HEISENBERG_MODE=embed|proxy` environment variable
 
 #![warn(missing_docs)]

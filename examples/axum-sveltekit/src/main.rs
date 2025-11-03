@@ -26,6 +26,8 @@ struct CreateTodo {
 
 async fn get_todos(store: axum::extract::State<TodoStore>) -> Json<Vec<Todo>> {
     let todos = store.lock().await;
+    let count = todos.len();
+    println!("GET /api/todos 200 - {} items", count);
     Json(todos.values().cloned().collect())
 }
 
@@ -41,6 +43,7 @@ async fn create_todo(
         completed: false,
     };
     todos.insert(id, todo.clone());
+    println!("POST /api/todos 200 - created #{}", id);
     Ok(Json(todo))
 }
 async fn toggle_todo(
@@ -50,8 +53,10 @@ async fn toggle_todo(
     let mut todos = store.lock().await;
     if let Some(todo) = todos.get_mut(&id) {
         todo.completed = !todo.completed;
+        println!("POST /api/todos/{}/toggle 200", id);
         Ok(Json(todo.clone()))
     } else {
+        println!("POST /api/todos/{}/toggle 404", id);
         Err(StatusCode::NOT_FOUND)
     }
 }
@@ -65,18 +70,25 @@ async fn main() {
         .route("/todos/:id/toggle", post(toggle_todo))
         .with_state(store);
 
-    // Define API routes first, then apply Heisenberg layer
-    // This ensures API routes are checked before SPA fallback
+    let config = heisenberg::Heisenberg::new().spa("./web/build").build();
+
     let app = Router::new()
         .nest("/api", api_routes)
-        .layer(heisenberg::HeisenbergLayer::new(
-            heisenberg::Heisenberg::new().spa("./web/build").build(),
-        ));
+        .layer(heisenberg::HeisenbergLayer::new(config));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3001")
         .await
-        .unwrap();
+        .expect("Failed to bind to 127.0.0.1:3001 - port may already be in use");
 
-    println!("🚀 Server running on http://127.0.0.1:3001");
-    axum::serve(listener, app).await.unwrap();
+    println!("🚀 Server running on http://127.0.0.1:3001\n");
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+}
+
+async fn shutdown_signal() {
+    let _ = tokio::signal::ctrl_c().await;
+    println!("\n🛑 Shutting down gracefully...");
 }

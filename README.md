@@ -4,15 +4,16 @@
 [![Documentation](https://docs.rs/heisenberg/badge.svg)](https://docs.rs/heisenberg)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
 
-Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switch between development mode (proxying to frontend dev servers) and production mode (serving embedded static assets).
+Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switch between proxy mode (forwarding to frontend dev servers) and embed mode (serving embedded static assets).
 
 ## ✨ Features
 
-- **🔄 Dual Mode**: Automatic dev/prod mode switching
+- **🔄 Dual Mode**: Automatic proxy/embed mode switching
 - **🎯 Framework Agnostic**: Works with Axum, Warp, Actix-web, Rocket, and more
 - **🧠 Smart Inference**: Auto-detects frontend configuration from package.json
 - **⚡ Zero Config**: Works out-of-the-box with sensible defaults
 - **🔧 Process Management**: Handles frontend dev server lifecycle
+- **🔌 WebSocket Proxying**: Transparent HMR support for Vite, Next.js, CRA
 - **📱 SPA Support**: Client-side routing with fallback to index.html
 - **📊 Optional Logging**: Structured diagnostics with `tracing`
 
@@ -40,30 +41,38 @@ async fn main() {
         .layer(HeisenbergLayer::new(Heisenberg::new().spa("./dist").build()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    
+    // Graceful shutdown cleans up dev servers on Ctrl+C
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+}
+
+async fn shutdown_signal() {
+    let _ = tokio::signal::ctrl_c().await;
 }
 ```
 
 ### 3. Run in different modes
 
 ```bash
-# Development mode - proxies to frontend dev server
+# Proxy mode - forwards to frontend dev server
 cargo run
 
-# Production mode - serves embedded assets  
+# Embed mode - serves embedded assets  
 cargo build --release && ./target/release/your-app
 ```
 
 That's it! Heisenberg automatically:
 - 🔍 Finds your `package.json` and extracts the dev command
 - 🚀 Starts your frontend dev server (`npm run dev`)
-- 🔗 Proxies frontend requests in development
-- 📦 Embeds assets for production builds
+- 🔗 Proxies frontend requests in proxy mode
+- 📦 Embeds assets for embed mode builds
 - 🌐 Opens your browser automatically
 
 ## 📖 Documentation
 
-- **[User Guide](GUIDE.md)** - Comprehensive setup and configuration guide
 - **[API Documentation](https://docs.rs/heisenberg)** - Complete API reference
 - **[Examples](examples/)** - Working examples for different frameworks
 
@@ -102,11 +111,18 @@ Heisenberg::new().spa("./dist")
 ```rust
 Heisenberg::new()
     .spa("./frontend/dist")
-        .dev_server("http://localhost:3000")
+        .dev_server("http://localhost:3000")  // Override auto-detected port
         .dev_command(["npm", "run", "dev"])
         .open_browser(true)
     .build()
 ```
+
+**Port Detection:** Heisenberg automatically detects dev server ports from:
+- CLI flags in package.json scripts (`--port 3000`, `-p 5173`)
+- Literal port numbers in vite.config.js (`port: 5173`)
+- Framework defaults (Vite→5173, Next.js→3000, CRA→3000)
+
+**Note:** Dynamic port configuration (variables, expressions) requires manual override with `.dev_server()`.
 
 ### Multiple SPAs
 ```rust
@@ -122,10 +138,10 @@ Heisenberg::new()
 
 | Build Command | Mode | Behavior |
 |---------------|------|----------|
-| `cargo run` | Development | Proxy to dev server |
-| `cargo build --release` | Production | Embed assets |
-| `HEISENBERG_MODE=embed cargo run` | Production | Force embed mode |
-| `HEISENBERG_MODE=proxy cargo build --release` | Development | Force proxy mode |
+| `cargo run` | Proxy | Forward to dev server |
+| `cargo build --release` | Embed | Serve embedded assets |
+| `HEISENBERG_MODE=embed cargo run` | Embed | Force embed mode |
+| `HEISENBERG_MODE=proxy cargo build --release` | Proxy | Force proxy mode |
 
 ## 📊 Debugging
 
@@ -143,27 +159,25 @@ RUST_LOG=debug,heisenberg=trace cargo run
 
 ## 🏗️ Examples
 
+- **[SvelteKit](examples/axum-sveltekit/)** - ⭐ Showcase example with WebSocket HMR
 - **[Basic Axum](examples/axum-simple/)** - Simple Axum + React setup
-- **[SvelteKit](examples/axum-sveltekit/)** - Axum + SvelteKit with HMR
-- **[Logging](examples/logging-example/)** - Structured logging example
-- **[Multi-SPA](examples/multi-spa/)** - Multiple frontend applications
+- **[Multi-SPA](examples/axum-multi-spa/)** - Multiple frontend applications
 - **[Actix-web](examples/actix-react/)** - Actix-web integration
 - **[Rocket](examples/rocket-vue/)** - Rocket integration
+- **[Logging](examples/logging-example/)** - Structured logging example
 
-## ⚠️ Vite/SvelteKit HMR Setup
+## 🧪 Testing
 
-When using Vite-based frameworks (SvelteKit, Vue, React+Vite), configure HMR to connect directly:
+```bash
+# Run all tests including WebSocket proxying
+cargo test
 
-```javascript
-// vite.config.js
-export default defineConfig({
-    server: {
-        hmr: { clientPort: 5173 }  // Your dev server port
-    }
-});
+# Run specific WebSocket test
+cargo test --test websocket_proxy
+
+# Try the showcase example
+cd examples/axum-sveltekit && cargo run
 ```
-
-This prevents HMR websocket connection issues that cause page refresh loops.
 
 ## 🤝 Contributing
 

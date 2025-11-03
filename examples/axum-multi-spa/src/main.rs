@@ -91,6 +91,9 @@ async fn main() {
     println!("🏠 Landing Page: http://{}/", addr);
     println!("🔧 API Status: http://{}/api/status", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await.expect(&format!(
+        "Failed to bind to {} - port may already be in use",
+        addr
+    ));
     axum::serve(listener, app).await.unwrap();
 }

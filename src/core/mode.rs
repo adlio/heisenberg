@@ -1,12 +1,12 @@
-//! Mode detection for development vs production
+//! Mode detection for proxy vs embed
 
 /// Operating mode for Heisenberg
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Mode {
-    /// Development mode - proxy to dev servers
-    Development,
-    /// Production mode - serve embedded assets
-    Production,
+    /// Proxy mode - forward requests to dev servers
+    Proxy,
+    /// Embed mode - serve embedded static assets
+    Embed,
 }
 
 /// Detect the current operating mode
@@ -14,16 +14,16 @@ pub fn detect_mode() -> Mode {
     // Check environment variable override first
     if let Ok(mode) = std::env::var("HEISENBERG_MODE") {
         match mode.to_lowercase().as_str() {
-            "production" | "prod" | "embed" => return Mode::Production,
-            "development" | "dev" | "proxy" => return Mode::Development,
+            "embed" | "production" | "prod" => return Mode::Embed,
+            "proxy" | "development" | "dev" => return Mode::Proxy,
             _ => {} // Fall through to default detection
         }
     }
 
     // Check if we're in debug or release mode
     if cfg!(debug_assertions) {
-        Mode::Development
+        Mode::Proxy
     } else {
-        Mode::Production
+        Mode::Embed
     }
 }

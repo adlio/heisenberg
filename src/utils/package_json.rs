@@ -22,7 +22,10 @@ pub fn infer_from_build_dir(build_dir: &Path) -> Result<InferredConfig, Heisenbe
     let package_json_path = find_package_json(&working_dir)?;
     let package_json = parse_package_json(&package_json_path)?;
     let dev_command = infer_dev_command(&package_json);
-    let dev_port = infer_dev_port(&package_json);
+
+    // Try vite.config.js first, then fall back to package.json inference
+    let dev_port =
+        read_vite_config_port(&working_dir).unwrap_or_else(|| infer_dev_port(&package_json));
 
     Ok(InferredConfig {
         working_dir,
@@ -173,6 +176,29 @@ fn infer_dev_port(package_json: &PackageJson) -> u16 {
 
     // Final fallback
     5173 // Vite default as most common modern tool
+}
+
+/// Try to read port from vite.config.js
+fn read_vite_config_port(working_dir: &Path) -> Option<u16> {
+    let vite_configs = ["vite.config.js", "vite.config.ts", "vite.config.mjs"];
+
+    for config_name in &vite_configs {
+        let config_path = working_dir.join(config_name);
+        if let Ok(content) = std::fs::read_to_string(&config_path) {
+            // Remove all whitespace and newlines to handle any formatting
+            let normalized: String = content.chars().filter(|c| !c.is_whitespace()).collect();
+
+            // Look for "port:" followed by digits
+            if let Some(pos) = normalized.find("port:") {
+                let after = &normalized[pos + 5..];
+                let port_str: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+                if let Ok(port) = port_str.parse::<u16>() {
+                    return Some(port);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Extract port number from a script command

@@ -18,14 +18,10 @@ Then visit http://localhost:3000
 - Static frontend served by Heisenberg (currently from `./dist/`)
 - Frontend can call backend API endpoints
 
-## Current Mode
+## Mode Detection
 
-This example currently runs in **development mode** (proxy mode is not yet implemented).
-The static files are served directly from the `dist/` directory.
+This example automatically switches between:
+- **Proxy mode** (`cargo run`) - forwards to frontend dev server
+- **Embed mode** (`cargo build --release`) - serves embedded static assets
 
-## Next Steps
-
-In Phase 3, this will be enhanced with:
-- Automatic mode detection (dev vs prod)
-- Frontend dev server proxy support
-- Process management for frontend builds
+The static files are served from the `dist/` directory in both modes.

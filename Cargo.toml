@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.70"
 authors = ["Aaron <aaron@example.com>"]
 license = "MIT"
-description = "Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switch between development mode (proxying to frontend dev servers) and production mode (serving embedded static assets)."
+description = "Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switch between proxy mode (forwarding to frontend dev servers) and embed mode (serving embedded static assets)."
 repository = "https://github.com/username/heisenberg"
 homepage = "https://github.com/username/heisenberg"
 documentation = "https://docs.rs/heisenberg"
@@ -32,6 +32,7 @@ tokio = { version = "1.35", features = ["full"] }
 tower = "0.4"
 tower-layer = "0.3"
 hyper = { version = "1.0", features = ["full"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
 reqwest = { version = "0.11", features = ["json"] }
 rust-embed = "8.0"
@@ -39,6 +40,10 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
 tracing = { version = "0.1", optional = true }
+tokio-tungstenite = "0.21"
+futures-util = "0.3"
+sha1 = "0.10"
+base64 = "0.21"
 
 # Optional framework dependencies
 actix-web = { version = "4.0", optional = true }
@@ -52,6 +57,7 @@ assert_matches = "1.5"
 httpmock = "0.7"
 criterion = { version = "0.5", features = ["html_reports"] }
 cargo-husky = { version = "1.5", default-features = false, features = ["precommit-hook", "run-cargo-test", "run-cargo-fmt", "run-cargo-clippy"] }
+axum = "0.7"
 
 [build-dependencies]
 # For build.rs asset embedding logic

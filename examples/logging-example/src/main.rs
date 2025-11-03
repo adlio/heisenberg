@@ -28,7 +28,9 @@ async fn main() {
         .route("/api/hello", get(api_handler))
         .layer(HeisenbergLayer::new(heisenberg_config));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+        .await
+        .expect("Failed to bind to 0.0.0.0:3000 - port may already be in use");
     tracing::info!("Server listening on http://localhost:3000");
 
     axum::serve(listener, app).await.unwrap();

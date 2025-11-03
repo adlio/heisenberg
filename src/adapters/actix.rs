@@ -58,8 +58,8 @@ pub async fn serve_spa(req: &HttpRequest, config: &Heisenberg) -> ActixResult<Ht
         .ok_or_else(|| actix_web::error::ErrorNotFound("No matching SPA route found"))?;
 
     match mode {
-        Mode::Development => proxy_request(req, route_config).await,
-        Mode::Production => serve_embedded_asset(path, route_config).await,
+        Mode::Proxy => proxy_request(req, route_config).await,
+        Mode::Embed => serve_embedded_asset(path, route_config).await,
     }
 }
 

@@ -32,7 +32,11 @@ pub struct HeisenbergService<S> {
 
 impl<S> HeisenbergService<S> {
     /// Create a new Heisenberg service
-    pub fn new(inner: S, config: Heisenberg) -> Result<Self, crate::error::HeisenbergError> {
+    pub fn new(
+        inner: S,
+        config: Heisenberg,
+        process_manager: Option<Arc<ProcessManager>>,
+    ) -> Result<Self, crate::error::HeisenbergError> {
         let mode = detect_mode();
         let router = Router::new(config.routes().to_vec(), mode)?;
 
@@ -44,11 +48,11 @@ impl<S> HeisenbergService<S> {
             let key = route.pattern.clone();
 
             match mode {
-                Mode::Development => {
+                Mode::Proxy => {
                     let proxy = Arc::new(ProxyService::new(route.dev_proxy_url.clone()));
                     proxy_services.insert(key, proxy);
                 }
-                Mode::Production => {
+                Mode::Embed => {
                     let static_svc = Arc::new(StaticFileService::new(
                         route.embed_dir.clone(),
                         route.fallback_file.clone(),
@@ -57,33 +61,6 @@ impl<S> HeisenbergService<S> {
                 }
             }
         }
-
-        // Start dev servers in development mode
-        let process_manager = if mode == Mode::Development {
-            let pm = Arc::new(ProcessManager::new());
-            for route in config.routes() {
-                let route_id = route.pattern.clone();
-                let command = route.dev_command.clone();
-                let working_dir = route.working_dir.clone();
-                let dev_url = route.dev_proxy_url.clone();
-                let open_browser = route.open_browser;
-                let pm_clone = pm.clone();
-
-                tokio::spawn(async move {
-                    if let Err(e) = pm_clone
-                        .start_process(&route_id, &command, &working_dir, &dev_url, open_browser)
-                        .await
-                    {
-                        #[cfg(feature = "logging")]
-                        debug!(error = %e, "Failed to start dev server");
-                        eprintln!("Warning: Failed to start dev server: {}", e);
-                    }
-                });
-            }
-            Some(pm)
-        } else {
-            None
-        };
 
         Ok(Self {
             inner,
@@ -102,7 +79,9 @@ where
     S::Response: Into<Response<B>> + Send + 'static,
     S::Future: Send + 'static,
     S::Error: Send + Sync + 'static,
-    B: From<Bytes> + Send + 'static,
+    B: hyper::body::Body + From<Bytes> + Send + 'static,
+    B::Data: Send,
+    B::Error: std::error::Error + Send + Sync,
 {
     type Response = Response<B>;
     type Error = S::Error;
@@ -128,6 +107,13 @@ where
             #[cfg(feature = "logging")]
             debug!(path = %path, mode = ?mode, "Processing Heisenberg request");
 
+            // Check if this is a WebSocket upgrade request
+            let is_websocket = headers
+                .get("upgrade")
+                .and_then(|v| v.to_str().ok())
+                .map(|v| v.eq_ignore_ascii_case("websocket"))
+                .unwrap_or(false);
+
             // Skip common API prefixes - let inner service handle them
             let is_api_path = path.starts_with("/api/") || path == "/api";
 
@@ -144,7 +130,38 @@ where
                 debug!(pattern = %route_config.pattern, "Route matched");
 
                 match mode {
-                    Mode::Development => {
+                    Mode::Proxy => {
+                        // Handle WebSocket upgrade requests specially
+                        if is_websocket {
+                            #[cfg(feature = "logging")]
+                            debug!("WebSocket upgrade detected, proxying to dev server");
+
+                            let proxy = {
+                                let proxy_services = proxy_services.lock().unwrap();
+                                proxy_services.get(&route_config.pattern).cloned()
+                            };
+                            if let Some(proxy) = proxy {
+                                match proxy.proxy_websocket(req).await {
+                                    Ok(response) => {
+                                        let (parts, body) = response.into_parts();
+                                        let bytes = body.collect().await.unwrap().to_bytes();
+                                        return Ok(Response::from_parts(parts, B::from(bytes)));
+                                    }
+                                    Err(e) => {
+                                        #[cfg(feature = "logging")]
+                                        debug!(error = %e, "WebSocket proxy failed");
+                                        return Ok(Response::builder()
+                                            .status(503)
+                                            .body(B::from(Bytes::from(format!(
+                                                "WebSocket proxy error: {}",
+                                                e
+                                            ))))
+                                            .unwrap());
+                                    }
+                                }
+                            }
+                        }
+
                         let proxy = {
                             let proxy_services = proxy_services.lock().unwrap();
                             proxy_services.get(&route_config.pattern).cloned()
@@ -167,7 +184,7 @@ where
                             }
                         }
                     }
-                    Mode::Production => {
+                    Mode::Embed => {
                         let static_svc = {
                             let static_services = static_services.lock().unwrap();
                             static_services.get(&route_config.pattern).cloned()
