@@ -218,13 +218,13 @@ impl ProxyService {
 <body>
     <div class="container">
         <div class="error">
-            <h1>🚫 Development Server Unavailable</h1>
+            <h1>&#x1F6AB; Development Server Unavailable</h1>
             <p><strong>Could not connect to:</strong> <code>{}</code></p>
             <p><strong>Error:</strong> {}</p>
         </div>
         
         <div class="info">
-            <h2>💡 Troubleshooting</h2>
+            <h2>&#x1F4A1; Troubleshooting</h2>
             <p>The frontend development server is not responding. Here's what you can try:</p>
             <ul>
                 <li><strong>Check if the dev server is running:</strong> Look for a process running on the configured port</li>
