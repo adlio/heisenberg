@@ -45,22 +45,24 @@ impl HeisenbergLayer {
             let pm = PM.get_or_init(|| {
                 let pm = Arc::new(ProcessManager::new());
 
-                // Register signal handler for cleanup (only if runtime available)
-                if tokio::runtime::Handle::try_current().is_ok() {
-                    let pm_cleanup = pm.clone();
-                    tokio::spawn(async move {
+                // Start dev servers and keep runtime alive for signal handling
+                let pm_clone = pm.clone();
+                let routes = config.routes().to_vec();
+
+                std::thread::spawn(move || {
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+
+                    // Register CTRL-C handler
+                    let pm_cleanup = pm_clone.clone();
+                    rt.spawn(async move {
                         let _ = tokio::signal::ctrl_c().await;
                         #[cfg(feature = "logging")]
                         debug!("Received SIGINT, cleaning up dev servers");
                         let _ = pm_cleanup.stop_all_processes();
+                        std::process::exit(0);
                     });
-                }
 
-                // Start dev servers - use separate runtime to avoid nested runtime issues
-                let pm_clone = pm.clone();
-                let routes = config.routes().to_vec();
-                std::thread::spawn(move || {
-                    let rt = tokio::runtime::Runtime::new().unwrap();
+                    // Start dev servers
                     rt.block_on(async {
                         for route in routes {
                             if let Err(e) = pm_clone
@@ -80,9 +82,10 @@ impl HeisenbergLayer {
                             }
                         }
                     });
-                })
-                .join()
-                .unwrap();
+
+                    // Keep runtime alive to handle signals
+                    std::thread::park();
+                });
 
                 pm
             });
