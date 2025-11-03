@@ -1,6 +1,6 @@
 # Heisenberg TODO
 
-Progress tracking for future enhancements.
+Actionable tasks for future development sessions.
 
 ## ✅ COMPLETED (v0.2.0)
 
@@ -31,46 +31,111 @@ Progress tracking for future enhancements.
 - [x] CHANGELOG for v0.2.0
 - [x] Clear error messages across all examples
 
-## 🔧 Future Enhancements
+## 🎯 High Priority (v0.3.0)
 
-### Framework Support
-- [ ] Test actix-react example thoroughly
-- [ ] Test rocket-vue example thoroughly
-- [ ] Add Warp example
-- [ ] Document framework-specific patterns
+### Framework Examples & Testing
+**Goal:** Verify all examples work correctly across platforms
 
-### Configuration
-- [ ] Support monorepo structures
-- [ ] Support more build tools (pnpm, bun, deno)
-- [ ] Add configuration file support (heisenberg.toml)
-- [ ] Environment-specific configuration
+- [ ] **Test actix-react example**
+  - Run on macOS, verify dev server starts
+  - Test proxy mode and embed mode
+  - Document any issues found
+  
+- [ ] **Test rocket-vue example**
+  - Run on macOS, verify dev server starts
+  - Test proxy mode and embed mode
+  - Document any issues found
 
-### Developer Experience
-- [ ] Better dev server output formatting
-- [ ] Configurable health check endpoints
-- [ ] Configurable health check timeout
-- [ ] Dev server restart on crash
-- [ ] Hot reload configuration changes
+- [ ] **Add Warp example**
+  - Create examples/warp-react with basic setup
+  - Copy pattern from axum-simple
+  - Verify Tower integration works
 
-### Advanced Features
-- [ ] Multiple dev servers per SPA (e.g., API + frontend)
-- [ ] Custom proxy middleware
-- [ ] Request/response transformation hooks
-- [ ] Metrics and monitoring
-- [ ] Rate limiting for dev mode
+### Cross-Platform Testing
+**Goal:** Ensure Heisenberg works on all major platforms
 
-### Testing
-- [ ] Performance benchmarks
-- [ ] Load testing for proxy mode
-- [ ] Cross-platform testing (Windows, Linux, macOS)
-- [ ] Integration tests with real frontend frameworks
+- [ ] **Windows testing**
+  - Test axum-sveltekit example on Windows
+  - Verify path handling (backslashes vs forward slashes)
+  - Test process spawning (npm.cmd vs npm)
+  - Document Windows-specific issues
 
-### Documentation
-- [ ] Video tutorials
-- [ ] Migration guides from other solutions
-- [ ] Troubleshooting guide
-- [ ] Best practices guide
-- [ ] Architecture documentation
+- [ ] **Linux testing**
+  - Test axum-sveltekit example on Linux
+  - Verify browser auto-open works
+  - Test signal handling (SIGINT)
+
+### Build Tool Support
+**Goal:** Support modern JavaScript tooling
+
+- [ ] **pnpm support**
+  - Detect pnpm-lock.yaml
+  - Use `pnpm run dev` instead of `npm run dev`
+  - Test with example project
+
+- [ ] **bun support**
+  - Detect bun.lockb
+  - Use `bun run dev` instead of `npm run dev`
+  - Test with example project
+
+## 🔧 Medium Priority
+
+### Developer Experience Improvements
+
+- [ ] **Configurable health check timeout**
+  - Add `.health_check_timeout(Duration)` to SpaRouteBuilder
+  - Default: 30s, allow override for slow-starting servers
+  - Update examples to show usage
+
+- [ ] **Better dev server output formatting**
+  - Prefix dev server output with colored labels
+  - Example: `[vite] VITE v7.1.3 ready in 590 ms`
+  - Make it easy to distinguish dev server logs from app logs
+
+- [ ] **Dev server restart on crash**
+  - Detect when dev server process exits unexpectedly
+  - Automatically restart with exponential backoff
+  - Log restart attempts clearly
+
+### Monorepo Support
+**Goal:** Work seamlessly in monorepo structures
+
+- [ ] **Detect workspace root**
+  - Look for workspace indicators (pnpm-workspace.yaml, lerna.json)
+  - Search up directory tree for package.json with workspaces
+  - Use correct working directory for dev commands
+
+- [ ] **Support workspace-relative paths**
+  - Allow `./packages/frontend` style paths
+  - Resolve relative to workspace root
+  - Document monorepo setup patterns
+
+## 📚 Low Priority
+
+### Advanced Features (if demand exists)
+
+- [ ] **Custom proxy middleware**
+  - Add `.proxy_middleware(fn)` to intercept/modify requests
+  - Use case: Add auth headers, transform responses
+  - Design API first, implement if requested
+
+- [ ] **Request/response transformation hooks**
+  - Add `.on_request(fn)` and `.on_response(fn)` hooks
+  - Use case: Logging, metrics, debugging
+  - Design API first, implement if requested
+
+### Performance
+
+- [ ] **Performance benchmarks**
+  - Create benches/proxy_throughput.rs
+  - Measure requests/second in proxy mode
+  - Compare to direct dev server access
+  - Document results in README
+
+- [ ] **Load testing**
+  - Use `wrk` or `hey` to stress test proxy mode
+  - Identify bottlenecks
+  - Optimize hot paths if needed
 
 ## 📊 Known Limitations
 
@@ -79,21 +144,14 @@ Progress tracking for future enhancements.
 - Dynamic port configuration (variables in vite.config.js) requires manual `.dev_server()` override
 - Tests must run with `--test-threads=1` due to OnceLock state sharing
 
-### Future Improvements
-- Better cleanup of orphaned processes
-- JavaScript AST parser for complex vite.config.js (if demand exists)
-- Parallel test execution support
-
-## 🎯 Next Release (v0.3.0)
-
-Potential focus areas:
-1. **Stability**: Comprehensive cross-platform testing
-2. **DX**: Better error messages and debugging tools
-3. **Examples**: More framework examples and real-world patterns
-4. **Performance**: Benchmarks and optimizations
+### Potential Future Improvements (if issues arise)
+- Better cleanup of orphaned processes (OS-specific solutions)
+- JavaScript AST parser for complex vite.config.js (only if users request it)
+- Parallel test execution support (requires refactoring OnceLock pattern)
 
 ## 📝 Notes
 
 - v0.2.0 released 2025-11-02 with WebSocket support and blocking startup
 - All critical features for production use are implemented
-- Focus shifting to polish, testing, and additional framework support
+- Focus: Polish existing features, expand framework support, improve cross-platform reliability
+- Philosophy: Automatic detection > Configuration files. Keep API simple and fluent.
