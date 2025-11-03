@@ -4,7 +4,7 @@
 [![Documentation](https://docs.rs/heisenberg/badge.svg)](https://docs.rs/heisenberg)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
 
-Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switch between development mode (proxying to frontend dev servers) and production mode (serving embedded static assets).
+Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switch between proxy mode (forwarding to frontend dev servers) and embed mode (serving embedded static assets).
 
 ## ✨ Features
 
@@ -48,10 +48,10 @@ async fn main() {
 ### 3. Run in different modes
 
 ```bash
-# Development mode - proxies to frontend dev server
+# Proxy mode - forwards to frontend dev server
 cargo run
 
-# Production mode - serves embedded assets  
+# Embed mode - serves embedded assets  
 cargo build --release && ./target/release/your-app
 ```
 
@@ -122,10 +122,10 @@ Heisenberg::new()
 
 | Build Command | Mode | Behavior |
 |---------------|------|----------|
-| `cargo run` | Development | Proxy to dev server |
-| `cargo build --release` | Production | Embed assets |
-| `HEISENBERG_MODE=embed cargo run` | Production | Force embed mode |
-| `HEISENBERG_MODE=proxy cargo build --release` | Development | Force proxy mode |
+| `cargo run` | Proxy | Forward to dev server |
+| `cargo build --release` | Embed | Serve embedded assets |
+| `HEISENBERG_MODE=embed cargo run` | Embed | Force embed mode |
+| `HEISENBERG_MODE=proxy cargo build --release` | Proxy | Force proxy mode |
 
 ## 📊 Debugging
 

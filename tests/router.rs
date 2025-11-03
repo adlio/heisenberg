@@ -21,7 +21,7 @@ fn create_test_route(pattern: &str, embed_dir: &str) -> SpaRouteConfig {
 fn test_router_creation() {
     let routes = vec![create_test_route("/*", "./dist")];
 
-    let router = Router::new(routes, Mode::Development);
+    let router = Router::new(routes, Mode::Proxy);
     assert!(router.is_ok());
 }
 
@@ -32,7 +32,7 @@ fn test_exact_route_matching() {
         create_test_route("/app", "./app/dist"),
     ];
 
-    let mut router = Router::new(routes, Mode::Development).unwrap();
+    let mut router = Router::new(routes, Mode::Proxy).unwrap();
 
     assert!(router.match_route("/admin").is_some());
     assert!(router.match_route("/app").is_some());
@@ -46,7 +46,7 @@ fn test_prefix_route_matching() {
         create_test_route("/api/*", "./api/dist"),
     ];
 
-    let mut router = Router::new(routes, Mode::Development).unwrap();
+    let mut router = Router::new(routes, Mode::Proxy).unwrap();
 
     assert!(router.match_route("/admin").is_some());
     assert!(router.match_route("/admin/").is_some());
@@ -59,7 +59,7 @@ fn test_prefix_route_matching() {
 fn test_catch_all_route() {
     let routes = vec![create_test_route("/*", "./dist")];
 
-    let mut router = Router::new(routes, Mode::Development).unwrap();
+    let mut router = Router::new(routes, Mode::Proxy).unwrap();
 
     assert!(router.match_route("/").is_some());
     assert!(router.match_route("/anything").is_some());
@@ -74,7 +74,7 @@ fn test_route_priority() {
         create_test_route("/admin/users", "./users"), // Exact (highest priority)
     ];
 
-    let mut router = Router::new(routes, Mode::Development).unwrap();
+    let mut router = Router::new(routes, Mode::Proxy).unwrap();
 
     // Exact match should win over prefix and catch-all
     let matched = router.match_route("/admin/users").unwrap();
@@ -93,7 +93,7 @@ fn test_route_priority() {
 fn test_route_caching() {
     let routes = vec![create_test_route("/admin/*", "./admin")];
 
-    let mut router = Router::new(routes, Mode::Development).unwrap();
+    let mut router = Router::new(routes, Mode::Proxy).unwrap();
 
     // First match should populate cache
     assert!(router.match_route("/admin/users").is_some());
@@ -114,7 +114,7 @@ fn test_invalid_patterns() {
         open_browser: false,
     }];
 
-    let router = Router::new(routes, Mode::Development);
+    let router = Router::new(routes, Mode::Proxy);
     assert!(router.is_err());
 }
 
@@ -122,7 +122,7 @@ fn test_invalid_patterns() {
 fn test_route_handler_development_mode() {
     let routes = vec![create_test_route("/admin/*", "./admin/dist")];
 
-    let mut router = Router::new(routes, Mode::Development).unwrap();
+    let mut router = Router::new(routes, Mode::Proxy).unwrap();
 
     let handler = router.route_handler("/admin/users").unwrap();
     match handler {
@@ -138,7 +138,7 @@ fn test_route_handler_development_mode() {
 fn test_route_handler_production_mode() {
     let routes = vec![create_test_route("/admin/*", "./admin/dist")];
 
-    let mut router = Router::new(routes, Mode::Production).unwrap();
+    let mut router = Router::new(routes, Mode::Embed).unwrap();
 
     let handler = router.route_handler("/admin/users").unwrap();
     match handler {
@@ -157,7 +157,7 @@ fn test_route_validation_duplicate_patterns() {
         create_test_route("/admin/*", "./admin2/dist"), // Duplicate pattern
     ];
 
-    let router = Router::new(routes, Mode::Development);
+    let router = Router::new(routes, Mode::Proxy);
     assert!(router.is_err());
 
     if let Err(e) = router {

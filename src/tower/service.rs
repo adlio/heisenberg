@@ -44,11 +44,11 @@ impl<S> HeisenbergService<S> {
             let key = route.pattern.clone();
 
             match mode {
-                Mode::Development => {
+                Mode::Proxy => {
                     let proxy = Arc::new(ProxyService::new(route.dev_proxy_url.clone()));
                     proxy_services.insert(key, proxy);
                 }
-                Mode::Production => {
+                Mode::Embed => {
                     let static_svc = Arc::new(StaticFileService::new(
                         route.embed_dir.clone(),
                         route.fallback_file.clone(),
@@ -59,7 +59,7 @@ impl<S> HeisenbergService<S> {
         }
 
         // Start dev servers in development mode (only once)
-        let process_manager = if mode == Mode::Development {
+        let process_manager = if mode == Mode::Proxy {
             use std::sync::OnceLock;
             static PM: OnceLock<Arc<ProcessManager>> = OnceLock::new();
 
@@ -166,7 +166,7 @@ where
                 debug!(pattern = %route_config.pattern, "Route matched");
 
                 match mode {
-                    Mode::Development => {
+                    Mode::Proxy => {
                         // Handle WebSocket upgrade requests specially
                         if is_websocket {
                             #[cfg(feature = "logging")]
@@ -220,7 +220,7 @@ where
                             }
                         }
                     }
-                    Mode::Production => {
+                    Mode::Embed => {
                         let static_svc = {
                             let static_services = static_services.lock().unwrap();
                             static_services.get(&route_config.pattern).cloned()

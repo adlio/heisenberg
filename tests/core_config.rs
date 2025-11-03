@@ -59,7 +59,7 @@ fn test_browser_opening_configuration() {
 
     let routes = config.routes();
     assert_eq!(routes.len(), 1);
-    assert_eq!(routes[0].open_browser, true);
+    assert!(routes[0].open_browser);
     assert_eq!(routes[0].dev_proxy_url, "http://localhost:3000");
 }
 
@@ -68,7 +68,7 @@ fn test_browser_opening_default_false() {
     let config = Heisenberg::new().spa("./dist").build();
     let routes = config.routes();
 
-    assert_eq!(routes[0].open_browser, false); // Conservative default
+    assert!(!routes[0].open_browser); // Conservative default
 }
 
 #[test]

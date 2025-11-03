@@ -12,7 +12,7 @@ fn benchmark_router_matching(c: &mut Criterion) {
         .build();
 
     let mut router =
-        Router::new(config.routes().to_vec(), Mode::Development).expect("Failed to create router");
+        Router::new(config.routes().to_vec(), Mode::Proxy).expect("Failed to create router");
 
     c.bench_function("router_match_cached", |b| {
         b.iter(|| {
@@ -22,7 +22,7 @@ fn benchmark_router_matching(c: &mut Criterion) {
 
     c.bench_function("router_match_uncached", |b| {
         b.iter(|| {
-            let mut fresh_router = Router::new(config.routes().to_vec(), Mode::Development)
+            let mut fresh_router = Router::new(config.routes().to_vec(), Mode::Proxy)
                 .expect("Failed to create router");
             black_box(fresh_router.match_route("/app/dashboard"));
         })
@@ -41,7 +41,7 @@ fn benchmark_pattern_compilation(c: &mut Criterion) {
                 .pattern("/*")
                 .build();
 
-            black_box(Router::new(config.routes().to_vec(), Mode::Development));
+            let _ = black_box(Router::new(config.routes().to_vec(), Mode::Proxy));
         })
     });
 }

@@ -136,8 +136,8 @@ impl Router {
         let mode = self.mode;
         if let Some(route_config) = self.match_route(path) {
             match mode {
-                Mode::Development => Some(RouteHandler::Proxy(route_config.clone())),
-                Mode::Production => Some(RouteHandler::StaticFiles(route_config.clone())),
+                Mode::Proxy => Some(RouteHandler::Proxy(route_config.clone())),
+                Mode::Embed => Some(RouteHandler::StaticFiles(route_config.clone())),
             }
         } else {
             None

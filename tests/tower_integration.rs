@@ -9,9 +9,7 @@ use tower::ServiceBuilder;
 fn test_tower_layer_creation() {
     let config = Heisenberg::new().spa("./test-dist").build();
     let _layer = HeisenbergLayer::new(config);
-
-    // Should be able to create layer without panicking
-    assert!(true); // Layer created successfully
+    // Layer created successfully without panicking
 }
 
 #[test]
@@ -21,9 +19,7 @@ fn test_tower_layer_with_multiple_routes() {
         .spa("./app-dist")
         .build();
     let _layer = HeisenbergLayer::new(config);
-
-    // Should handle multiple routes
-    assert!(true); // Layer created successfully
+    // Layer handles multiple routes successfully
 }
 
 #[test]
@@ -31,10 +27,8 @@ fn test_service_builder_integration() {
     let config = Heisenberg::new().spa("./test-dist").build();
     let layer = HeisenbergLayer::new(config);
 
-    // Should integrate with ServiceBuilder
     let _service_builder = ServiceBuilder::new().layer(layer);
-
-    assert!(true); // ServiceBuilder integration works
+    // ServiceBuilder integration works successfully
 }
 
 #[test]

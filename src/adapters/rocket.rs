@@ -62,8 +62,8 @@ pub async fn serve_spa(
         .ok_or(rocket::http::Status::NotFound)?;
 
     match mode {
-        Mode::Development => proxy_request(path, route_config).await,
-        Mode::Production => serve_embedded_asset(path, route_config).await,
+        Mode::Proxy => proxy_request(path, route_config).await,
+        Mode::Embed => serve_embedded_asset(path, route_config).await,
     }
 }
 

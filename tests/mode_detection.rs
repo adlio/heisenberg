@@ -15,7 +15,7 @@ fn test_mode_detection_env_override_production() {
     let mode = detect_mode();
     env::remove_var("HEISENBERG_MODE");
 
-    assert_eq!(mode, Mode::Production);
+    assert_eq!(mode, Mode::Embed);
 }
 
 #[test]
@@ -26,7 +26,7 @@ fn test_mode_detection_env_override_development() {
     let mode = detect_mode();
     env::remove_var("HEISENBERG_MODE");
 
-    assert_eq!(mode, Mode::Development);
+    assert_eq!(mode, Mode::Proxy);
 }
 
 #[test]
@@ -36,23 +36,13 @@ fn test_mode_detection_aliases() {
     // Test production aliases
     for alias in ["prod", "embed"] {
         env::set_var("HEISENBERG_MODE", alias);
-        assert_eq!(
-            detect_mode(),
-            Mode::Production,
-            "Failed for alias: {}",
-            alias
-        );
+        assert_eq!(detect_mode(), Mode::Embed, "Failed for alias: {}", alias);
     }
 
     // Test development aliases
     for alias in ["dev", "proxy"] {
         env::set_var("HEISENBERG_MODE", alias);
-        assert_eq!(
-            detect_mode(),
-            Mode::Development,
-            "Failed for alias: {}",
-            alias
-        );
+        assert_eq!(detect_mode(), Mode::Proxy, "Failed for alias: {}", alias);
     }
 
     env::remove_var("HEISENBERG_MODE");
@@ -67,8 +57,8 @@ fn test_mode_detection_default_fallback() {
 
     // Should match build configuration
     #[cfg(debug_assertions)]
-    assert_eq!(mode, Mode::Development);
+    assert_eq!(mode, Mode::Proxy);
 
     #[cfg(not(debug_assertions))]
-    assert_eq!(mode, Mode::Production);
+    assert_eq!(mode, Mode::Embed);
 }
