@@ -70,8 +70,8 @@ async fn main() {
         .route("/todos/:id/toggle", post(toggle_todo))
         .with_state(store);
 
-    // Embed assets and configure Heisenberg in one line
-    let config = heisenberg::embed_spa_assets!("./web/build");
+    // Embed assets and configure Heisenberg
+    let config = heisenberg::embed_spa_assets!("./web/build").build();
 
     let app = Router::new()
         .nest("/api", api_routes)

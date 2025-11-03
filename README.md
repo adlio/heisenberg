@@ -40,8 +40,8 @@ use heisenberg::HeisenbergLayer;
 
 #[tokio::main]
 async fn main() {
-    // Embed assets and configure - one line!
-    let config = heisenberg::embed_spa_assets!("./dist");
+    // Embed assets and configure
+    let config = heisenberg::embed_spa_assets!("./dist").build();
     
     let app = Router::new()
         .route("/api/hello", get(|| async { "Hello API!" }))
@@ -157,13 +157,22 @@ Both `embed_spa_assets!()` and `.spa()` must point to wherever your build output
 
 ### Multiple SPAs
 ```rust
-Heisenberg::new()
+// Embed each SPA's assets
+heisenberg::embed_spa_assets!("./admin/dist");
+heisenberg::embed_spa_assets!("./app/dist");
+
+// Configure with custom route patterns
+let config = Heisenberg::new()
     .spa("./admin/dist")
+        .pattern("/admin/*")
         .dev_server("http://localhost:3001")
     .spa("./app/dist")
+        .pattern("/*")
         .dev_server("http://localhost:3000")
-    .build()
+    .build();
 ```
+
+
 
 ## 🔧 Mode Detection
 

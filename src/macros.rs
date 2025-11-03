@@ -1,24 +1,34 @@
 //! Macros for embedding assets
 
-/// Embed assets and create Heisenberg config in one step
+/// Embed assets and start building Heisenberg config
 ///
-/// This macro generates a RustEmbed struct, registers it, and returns a configured
-/// Heisenberg instance ready to use.
+/// This macro generates a RustEmbed struct, registers it, and returns a builder
+/// that you can configure further before calling `.build()`.
 ///
-/// # Example
+/// # Simple Example (single SPA)
 ///
 /// ```ignore
-/// use heisenberg::embed_spa_assets;
+/// let config = heisenberg::embed_spa_assets!("./dist").build();
+/// ```
 ///
-/// #[tokio::main]
-/// async fn main() {
-///     let config = embed_spa_assets!("./web/build");
-///     
-///     let app = Router::new()
-///         .route("/api/hello", get(handler))
-///         .layer(HeisenbergLayer::new(config));
-///     // ...
-/// }
+/// # Multiple SPAs
+///
+/// ```ignore
+/// heisenberg::embed_spa_assets!("./admin/dist");
+/// heisenberg::embed_spa_assets!("./app/dist");
+///
+/// let config = Heisenberg::new()
+///     .spa("./admin/dist").pattern("/admin/*")
+///     .spa("./app/dist").pattern("/*")
+///     .build();
+/// ```
+///
+/// # Custom Route Pattern
+///
+/// ```ignore
+/// let config = heisenberg::embed_spa_assets!("./dist")
+///     .pattern("/app/*")
+///     .build();
 /// ```
 #[macro_export]
 macro_rules! embed_spa_assets {
@@ -37,6 +47,6 @@ macro_rules! embed_spa_assets {
             }
         };
 
-        $crate::Heisenberg::new().spa($folder).build()
+        $crate::Heisenberg::new().spa($folder)
     }};
 }
