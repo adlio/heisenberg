@@ -78,7 +78,7 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3001")
         .await
-        .unwrap();
+        .expect("Failed to bind to 127.0.0.1:3001 - port may already be in use");
 
     println!("🚀 Server running on http://127.0.0.1:3001\n");
 
