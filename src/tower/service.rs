@@ -32,7 +32,11 @@ pub struct HeisenbergService<S> {
 
 impl<S> HeisenbergService<S> {
     /// Create a new Heisenberg service
-    pub fn new(inner: S, config: Heisenberg) -> Result<Self, crate::error::HeisenbergError> {
+    pub fn new(
+        inner: S,
+        config: Heisenberg,
+        process_manager: Option<Arc<ProcessManager>>,
+    ) -> Result<Self, crate::error::HeisenbergError> {
         let mode = detect_mode();
         let router = Router::new(config.routes().to_vec(), mode)?;
 
@@ -57,57 +61,6 @@ impl<S> HeisenbergService<S> {
                 }
             }
         }
-
-        // Start dev servers in development mode (only once)
-        let process_manager = if mode == Mode::Proxy {
-            use std::sync::OnceLock;
-            static PM: OnceLock<Arc<ProcessManager>> = OnceLock::new();
-
-            PM.get_or_init(|| {
-                let pm = Arc::new(ProcessManager::new());
-
-                // Register signal handler for cleanup
-                let pm_cleanup = pm.clone();
-                tokio::spawn(async move {
-                    let _ = tokio::signal::ctrl_c().await;
-                    #[cfg(feature = "logging")]
-                    debug!("Received SIGINT, cleaning up dev servers");
-                    let _ = pm_cleanup.stop_all_processes();
-                });
-
-                // Start dev servers in background but log errors
-                for route in config.routes() {
-                    let route_id = route.pattern.clone();
-                    let command = route.dev_command.clone();
-                    let working_dir = route.working_dir.clone();
-                    let dev_url = route.dev_proxy_url.clone();
-                    let open_browser = route.open_browser;
-                    let pm_clone = pm.clone();
-
-                    tokio::spawn(async move {
-                        if let Err(e) = pm_clone
-                            .start_process(
-                                &route_id,
-                                &command,
-                                &working_dir,
-                                &dev_url,
-                                open_browser,
-                            )
-                            .await
-                        {
-                            eprintln!("❌ Failed to start dev server: {}", e);
-                            eprintln!("   This will cause proxy requests to fail.");
-                            eprintln!("   Check the error above and fix the configuration.");
-                        }
-                    });
-                }
-                pm
-            })
-            .clone()
-            .into()
-        } else {
-            None
-        };
 
         Ok(Self {
             inner,

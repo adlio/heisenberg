@@ -37,7 +37,9 @@ async fn test_websocket_proxy_basic() {
     let backend_url = format!("http://127.0.0.1:{}", backend_addr.port());
 
     // Create Heisenberg config pointing to backend
+    // Set SKIP_DEV_SERVER to prevent blocking startup in tests
     std::env::set_var("HEISENBERG_MODE", "proxy");
+    std::env::set_var("HEISENBERG_SKIP_DEV_SERVER", "1");
     let config = Heisenberg::new()
         .spa("./test-dist")
         .dev_server(&backend_url)
@@ -76,4 +78,5 @@ async fn test_websocket_proxy_basic() {
     }
 
     std::env::remove_var("HEISENBERG_MODE");
+    std::env::remove_var("HEISENBERG_SKIP_DEV_SERVER");
 }
