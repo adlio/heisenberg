@@ -73,7 +73,6 @@ impl<S> HeisenbergService<S> {
                     #[cfg(feature = "logging")]
                     debug!("Received SIGINT, cleaning up dev servers");
                     let _ = pm_cleanup.stop_all_processes();
-                    std::process::exit(0);
                 });
 
                 for route in config.routes() {
