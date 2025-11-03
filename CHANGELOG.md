@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-11-02
+
+### Added
+- **WebSocket Proxying**: Full support for WebSocket connections including HMR (Hot Module Replacement)
+  - Transparent proxying of WebSocket upgrade requests
+  - Support for Vite, Next.js, and Create React App HMR
+  - Automated WebSocket proxy testing
+- **Port Auto-Detection**: Automatically detect dev server ports from vite.config.js
+  - Parses literal port numbers from config files
+  - Falls back to framework defaults (Vite: 5173, Next.js/CRA: 3000)
+- **Blocking Dev Server Startup**: Dev servers now start synchronously before Rust server binds
+  - Prevents race conditions and port conflicts
+  - Fail-fast behavior with clear error messages
+  - Works consistently across all frameworks (Axum, Actix, Rocket)
+
+### Changed
+- **Improved Error Messages**: All examples now show specific port numbers in bind errors
+- **Updated Terminology**: Consistent use of "proxy/embed" instead of "development/production"
+- **Enhanced Documentation**: Added WebSocket testing guide and troubleshooting tips
+
+### Fixed
+- Dev server startup race conditions that could cause "connection refused" errors
+- Port conflict detection and error reporting
+- Test isolation issues with parallel test execution
+
 ## [0.1.1] - 2025-08-25
 
 ### Changed
