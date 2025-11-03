@@ -109,6 +109,7 @@ impl ProcessManager {
             command.join(" "),
             working_dir.display()
         );
+        println!("   Proxying to: {}", dev_server_url);
 
         // Check and install dependencies if needed
         Self::ensure_dependencies_installed(working_dir)?;

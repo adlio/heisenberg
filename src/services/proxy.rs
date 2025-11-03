@@ -225,12 +225,13 @@ impl ProxyService {
         
         <div class="info">
             <h2>&#x1F4A1; Troubleshooting</h2>
-            <p>The frontend development server is not responding. Here's what you can try:</p>
+            <p>Heisenberg is trying to proxy to <code>{}</code> but the server is not responding.</p>
             <ul>
-                <li><strong>Check if the dev server is running:</strong> Look for a process running on the configured port</li>
-                <li><strong>Verify the URL:</strong> Make sure <code>{}</code> is correct</li>
-                <li><strong>Start the dev server manually:</strong> Run <code>npm run dev</code> or <code>yarn dev</code> in your frontend directory</li>
-                <li><strong>Check for port conflicts:</strong> Another process might be using the same port</li>
+                <li><strong>Check if the dev server is running:</strong> Look for a process on this port</li>
+                <li><strong>Port mismatch?</strong> If your vite.config.js uses a dynamic port (variables, expressions), 
+                    Heisenberg can only detect literal numbers. Use <code>.dev_server(\"http://localhost:PORT\")</code> to specify manually.</li>
+                <li><strong>Start the dev server manually:</strong> Run <code>npm run dev</code> in your frontend directory</li>
+                <li><strong>Check for port conflicts:</strong> Another process might be using the port</li>
                 <li><strong>Wait a moment:</strong> The dev server might still be starting up</li>
             </ul>
             <p><em>This page will automatically work once the development server is available.</em></p>

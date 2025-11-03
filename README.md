@@ -111,11 +111,18 @@ Heisenberg::new().spa("./dist")
 ```rust
 Heisenberg::new()
     .spa("./frontend/dist")
-        .dev_server("http://localhost:3000")
+        .dev_server("http://localhost:3000")  // Override auto-detected port
         .dev_command(["npm", "run", "dev"])
         .open_browser(true)
     .build()
 ```
+
+**Port Detection:** Heisenberg automatically detects dev server ports from:
+- CLI flags in package.json scripts (`--port 3000`, `-p 5173`)
+- Literal port numbers in vite.config.js (`port: 5173`)
+- Framework defaults (Vite→5173, Next.js→3000, CRA→3000)
+
+**Note:** Dynamic port configuration (variables, expressions) requires manual override with `.dev_server()`.
 
 ### Multiple SPAs
 ```rust
