@@ -26,6 +26,8 @@ Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switc
 heisenberg = "0.2"
 axum = "0.7"
 tokio = { version = "1.35", features = ["full"] }
+rust-embed = "8.0"  # For asset embedding
+ctor = "0.2"        # For asset embedding
 ```
 
 ### 2. Basic setup
@@ -33,6 +35,9 @@ tokio = { version = "1.35", features = ["full"] }
 ```rust
 use axum::{routing::get, Router};
 use heisenberg::{Heisenberg, HeisenbergLayer};
+
+// Embed assets into binary at compile time
+heisenberg::embed_spa_assets!("./dist");
 
 #[tokio::main]
 async fn main() {
@@ -60,15 +65,16 @@ async fn shutdown_signal() {
 # Proxy mode - forwards to frontend dev server
 cargo run
 
-# Embed mode - serves embedded assets  
+# Embed mode - assets embedded in binary
+# (Build frontend first: cd frontend && npm run build)
 cargo build --release && ./target/release/your-app
 ```
 
 That's it! Heisenberg automatically:
 - 🔍 Finds your `package.json` and extracts the dev command
-- 🚀 Starts your frontend dev server (`npm run dev`)
-- 🔗 Proxies frontend requests in proxy mode
-- 📦 Embeds assets for embed mode builds
+- 🚀 Starts your frontend dev server (`npm run dev`) in proxy mode
+- 🔗 Proxies frontend requests (including WebSocket HMR)
+- 📦 Embeds assets into binary in release builds
 - 🌐 Opens your browser automatically
 
 ## 📖 Documentation
@@ -110,9 +116,9 @@ Heisenberg::new().spa("./dist").build()
 ### Advanced Configuration
 ```rust
 Heisenberg::new()
-    .spa("./frontend/dist")
+    .spa("./frontend/dist")                   // Must match build output directory
         .dev_server("http://localhost:3000")  // Override auto-detected port
-        .dev_command(["npm", "run", "dev"])
+        .dev_command(["npm", "run", "dev"])   // Override auto-detected command
         .open_browser(true)
     .build()
 ```
@@ -123,6 +129,19 @@ Heisenberg::new()
 - Framework defaults (Vite→5173, Next.js→3000, CRA→3000)
 
 **Note:** Dynamic port configuration (variables, expressions) requires manual override with `.dev_server()`.
+
+### Custom Build Commands
+If you use a custom build command (not `npm run build`):
+
+```bash
+# Run your custom build command first
+cd frontend && npm run prod && cd ..
+
+# Then build Rust binary (assets embedded during compilation)
+cargo build --release
+```
+
+Both `embed_spa_assets!()` and `.spa()` must point to wherever your build outputs files.
 
 ### Multiple SPAs
 ```rust
@@ -139,9 +158,11 @@ Heisenberg::new()
 | Build Command | Mode | Behavior |
 |---------------|------|----------|
 | `cargo run` | Proxy | Forward to dev server |
-| `cargo build --release` | Embed | Serve embedded assets |
+| `cargo build --release` | Embed | Serve embedded assets from binary |
 | `HEISENBERG_MODE=embed cargo run` | Embed | Force embed mode |
 | `HEISENBERG_MODE=proxy cargo build --release` | Proxy | Force proxy mode |
+
+**Important:** Assets are embedded at compile time using `embed_spa_assets!()`. You must build your frontend first (e.g., `npm run build`) before `cargo build --release`.
 
 ## 📊 Debugging
 

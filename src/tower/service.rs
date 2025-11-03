@@ -185,6 +185,18 @@ where
                         }
                     }
                     Mode::Embed => {
+                        // Try embedded assets first
+                        if let Ok(response) = crate::services::embed_registry::serve_embedded_asset(
+                            &route_config.embed_dir.to_string_lossy(),
+                            &path,
+                            route_config.fallback_file.as_deref(),
+                        ) {
+                            let (parts, body) = response.into_parts();
+                            let bytes = body.collect().await.unwrap().to_bytes();
+                            return Ok(Response::from_parts(parts, B::from(bytes)));
+                        }
+
+                        // Fall back to disk serving
                         let static_svc = {
                             let static_services = static_services.lock().unwrap();
                             static_services.get(&route_config.pattern).cloned()

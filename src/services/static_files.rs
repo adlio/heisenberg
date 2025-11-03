@@ -4,12 +4,16 @@ use crate::error::HeisenbergError;
 use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper::{Response, StatusCode};
+use rust_embed::RustEmbed;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
 type Body = Full<Bytes>;
 
-/// Static file service for serving files from a directory
+/// Trait for embedded asset providers
+pub trait EmbeddedAssets: RustEmbed {}
+
+/// Static file service for serving files from a directory or embedded assets
 pub struct StaticFileService {
     base_dir: PathBuf,
     fallback_file: Option<String>,
@@ -21,6 +25,43 @@ impl StaticFileService {
         Self {
             base_dir,
             fallback_file,
+        }
+    }
+
+    /// Serve from embedded assets using rust-embed
+    pub fn serve_embedded<A: RustEmbed>(
+        &self,
+        path: &str,
+    ) -> Result<Response<Body>, HeisenbergError> {
+        let clean_path = path.trim_start_matches('/');
+        let file_path = if clean_path.is_empty() {
+            "index.html"
+        } else {
+            clean_path
+        };
+
+        match A::get(file_path) {
+            Some(content) => {
+                let mime_type = self.detect_mime_type(file_path);
+                Ok(Response::builder()
+                    .status(StatusCode::OK)
+                    .header("content-type", mime_type)
+                    .body(Full::new(Bytes::from(content.data.to_vec())))
+                    .unwrap())
+            }
+            None => {
+                if let Some(ref fallback) = self.fallback_file {
+                    if let Some(content) = A::get(fallback) {
+                        let mime_type = self.detect_mime_type(fallback);
+                        return Ok(Response::builder()
+                            .status(StatusCode::OK)
+                            .header("content-type", mime_type)
+                            .body(Full::new(Bytes::from(content.data.to_vec())))
+                            .unwrap());
+                    }
+                }
+                Err(HeisenbergError::file_not_found(path, "File not found"))
+            }
         }
     }
 

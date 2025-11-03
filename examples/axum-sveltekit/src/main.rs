@@ -10,6 +10,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+// Embed frontend assets into the binary at compile time
+// This makes the release binary completely standalone
+heisenberg::embed_spa_assets!("./web/build");
+
 type TodoStore = Arc<Mutex<HashMap<u32, Todo>>>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
