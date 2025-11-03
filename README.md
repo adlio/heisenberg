@@ -23,7 +23,7 @@ Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switc
 
 ```toml
 [dependencies]
-heisenberg = "0.1"
+heisenberg = "0.2"
 axum = "0.7"
 tokio = { version = "1.35", features = ["full"] }
 ```
@@ -104,7 +104,7 @@ use heisenberg::rocket::serve_spa;
 ### Smart Defaults
 ```rust
 // Infers everything from your project structure
-Heisenberg::new().spa("./dist")
+Heisenberg::new().spa("./dist").build()
 ```
 
 ### Advanced Configuration
@@ -127,9 +127,9 @@ Heisenberg::new()
 ### Multiple SPAs
 ```rust
 Heisenberg::new()
-    .spa("/admin/*", "./admin/dist")
+    .spa("./admin/dist")
         .dev_server("http://localhost:3001")
-    .spa("/*", "./app/dist")
+    .spa("./app/dist")
         .dev_server("http://localhost:3000")
     .build()
 ```
@@ -149,7 +149,7 @@ Enable structured logging:
 
 ```toml
 [dependencies]
-heisenberg = { version = "0.1", features = ["logging"] }
+heisenberg = { version = "0.2", features = ["logging"] }
 tracing-subscriber = "0.3"
 ```
 
