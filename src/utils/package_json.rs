@@ -185,19 +185,15 @@ fn read_vite_config_port(working_dir: &Path) -> Option<u16> {
     for config_name in &vite_configs {
         let config_path = working_dir.join(config_name);
         if let Ok(content) = std::fs::read_to_string(&config_path) {
-            // Simple regex-free parsing - look for "port: 5173" pattern
-            for line in content.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with("port:") {
-                    // Extract number after "port:"
-                    let after_colon = trimmed.strip_prefix("port:").unwrap().trim();
-                    let port_str: String = after_colon
-                        .chars()
-                        .take_while(|c| c.is_ascii_digit())
-                        .collect();
-                    if let Ok(port) = port_str.parse::<u16>() {
-                        return Some(port);
-                    }
+            // Remove all whitespace and newlines to handle any formatting
+            let normalized: String = content.chars().filter(|c| !c.is_whitespace()).collect();
+
+            // Look for "port:" followed by digits
+            if let Some(pos) = normalized.find("port:") {
+                let after = &normalized[pos + 5..];
+                let port_str: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+                if let Ok(port) = port_str.parse::<u16>() {
+                    return Some(port);
                 }
             }
         }
