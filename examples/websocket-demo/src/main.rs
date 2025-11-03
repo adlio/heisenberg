@@ -17,7 +17,9 @@ async fn main() {
         .route("/api/health", get(|| async { "OK" }))
         .layer(HeisenbergLayer::new(config));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+        .await
+        .expect("Failed to bind to 0.0.0.0:3000 - port may already be in use");
 
     println!("🚀 Heisenberg proxy running on http://localhost:3000");
     println!("📡 Proxying WebSocket connections to ws://localhost:8080");
