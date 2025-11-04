@@ -103,10 +103,11 @@ axum-sveltekit/
 
 ## Key Configuration
 
-### One-Line Setup
+### Heisenberg Setup
 ```rust
-// Embeds assets and configures Heisenberg in one line
-let config = heisenberg::embed_spa!("./web/build");
+// Embed assets and configure
+let app_spa = heisenberg::embed_spa!("./web/build");
+let config = heisenberg::Heisenberg::new().route("/*", app_spa).build();
 
 let app = Router::new()
     .nest("/api", api_routes)
