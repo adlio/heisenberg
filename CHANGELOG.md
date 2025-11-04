@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-11-03
+
+### Added
+- **Compile-Time Asset Embedding**: New `embed_spa!()` macro for true binary embedding
+  - Assets embedded at compile time using rust-embed
+  - Global registry pattern for multiple SPAs
+  - Clean single-specification API: `embed_spa!("./dist")`
+  - Support for multiple SPAs with unique identifiers
+- **New Core Modules**:
+  - `src/services/embed_registry.rs`: Global asset registry
+  - `src/macros.rs`: `embed_spa!()` macro implementation
+  - `src/core/embedded_spa.rs`: EmbeddedSpa handle type
+
+### Changed
+- **Breaking**: Assets now truly embedded in binary (previously only served from disk)
+- **Breaking**: Requires user dependencies: `rust-embed = "8.0"`, `ctor = "0.2"`, `paste = "1.0"`
+- Updated all documentation to reflect embedding implementation
+- Simplified API from duplicate path specifications to single specification
+
+### Fixed
+- Documentation incorrectly implied assets were embedded (now actually implemented)
+
 ## [0.2.0] - 2025-11-02
 
 ### Added
