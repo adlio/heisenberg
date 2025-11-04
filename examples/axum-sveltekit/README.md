@@ -44,12 +44,12 @@ Heisenberg automatically:
 # Build frontend assets first
 cd web && npm run build && cd ..
 
-# Then build and run Rust binary
+# Then build Rust binary (assets are embedded during compilation)
 cargo build --release
 ./target/release/axum-sveltekit
 ```
 
-The Rust binary serves pre-built assets from `./web/build` - no Node.js required at runtime!
+The Rust binary contains embedded assets - completely standalone, no external files or Node.js required!
 
 ## Architecture
 
@@ -81,9 +81,9 @@ The Rust binary serves pre-built assets from `./web/build` - no Node.js required
 
 ### Production Mode
 1. Frontend assets must be built first: `cd web && npm run build`
-2. Rust binary reads from `./web/build` directory at runtime
+2. Assets are embedded into the Rust binary during compilation
 3. SPA fallback ensures client-side routing works
-4. No Node.js required at runtime (but build directory must be present)
+4. Completely standalone - no external files or Node.js required
 
 ## Project Structure
 
@@ -105,16 +105,16 @@ axum-sveltekit/
 
 ### Heisenberg Setup
 ```rust
-let config = heisenberg::Heisenberg::new()
-    .spa("./web/build")  // Must match your build output directory
-    .build();
+// Embed assets and configure
+let app_spa = heisenberg::embed_spa!("./web/build");
+let config = heisenberg::Heisenberg::new().route("/*", app_spa).build();
 
 let app = Router::new()
     .nest("/api", api_routes)
     .layer(heisenberg::HeisenbergLayer::new(config));
 ```
 
-**The `.spa("./web/build")` path must match where your frontend build outputs files.**
+**The path must match your build output directory.**
 
 ### SvelteKit Static Adapter
 ```javascript
@@ -134,50 +134,47 @@ export default {
 ## Customizing for Your Setup
 
 ### Custom Build Command
-If you use a different build command (e.g., `npm run prod`), you need to:
-1. Run it manually before building the Rust binary
-2. Ensure the output directory matches `.spa("./path/to/output")`
+If you use a different build command (e.g., `npm run prod`):
 
 ```bash
-# Example with custom build command
+# Run your custom build command first
 cd web && npm run prod && cd ..
+
+# Then build Rust binary (assets embedded during compilation)
 cargo build --release
 ```
+
+The `embed_spa!()` macro path must point to wherever your build outputs files.
 
 ### Custom Output Directory
 If your build outputs to a different location:
 
 ```rust
 // In src/main.rs
-let config = heisenberg::Heisenberg::new()
-    .spa("./web/dist")  // Match your actual output directory
-    .build();
+let config = heisenberg::embed_spa!("./web/dist");
 ```
 
 ```javascript
 // In svelte.config.js
 adapter: adapter({
-    pages: 'dist',  // Must match Rust config
+    pages: 'dist',  // Must match paths above
     assets: 'dist',
     fallback: 'index.html'
 })
 ```
 
-### Dynamic Build Directories
-If your build outputs to dynamic paths (e.g., `/tmp/2025-11-02`), you have two options:
+### Required Dependencies
+Your Cargo.toml needs these for asset embedding:
 
-**Option 1: Use environment variables**
-```rust
-let build_dir = std::env::var("FRONTEND_BUILD_DIR")
-    .unwrap_or_else(|_| "./web/build".to_string());
-let config = heisenberg::Heisenberg::new().spa(&build_dir).build();
+```toml
+[dependencies]
+heisenberg = { version = "0.2", features = ["tower"] }
+rust-embed = "8.0"  # Required by embed_spa! macro
+ctor = "0.2"        # Required by embed_spa! macro
+paste = "1.0"       # Required by embed_spa! macro
 ```
 
-**Option 2: Symlink to a stable path**
-```bash
-ln -sf /tmp/2025-11-02 ./web/build
-cargo build --release
-```
+**Why are these required?** The `embed_spa!()` macro uses proc macros that must run in your crate's compilation context.
 
 ## WebSocket HMR Proxying
 
@@ -228,17 +225,17 @@ In the browser:
 # IMPORTANT: Build frontend first
 cd web && npm run build && cd ..
 
-# Then build Rust binary
+# Then build Rust binary (assets embedded during compilation)
 cargo build --release
 ./target/release/axum-sveltekit
 ```
 
 **Expected behavior:**
-- Binary reads from `./web/build` directory at runtime
+- Assets are embedded in the binary during compilation
 - No Vite server starts
-- Assets served from filesystem
+- Assets served from memory (embedded in binary)
 - App works identically to development mode
-- No Node.js required at runtime (but build directory must exist)
+- Completely standalone - no external files or Node.js required
 
 ## Troubleshooting
 

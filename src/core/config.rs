@@ -285,6 +285,49 @@ impl Heisenberg {
         }
     }
 
+    /// Add a SPA route with pattern and embedded assets
+    ///
+    /// # Arguments
+    ///
+    /// * `pattern` - Route pattern (e.g., `"/*"`, `"/admin/*"`)
+    /// * `embedded_spa` - Handle from `embed_spa!()` macro
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let admin = heisenberg::embed_spa!("./web/admin", admin);
+    /// let user = heisenberg::embed_spa!("./web/user", user);
+    ///
+    /// let config = Heisenberg::new()
+    ///     .route("/admin/*", admin)
+    ///     .route("/*", user)
+    ///     .build();
+    /// ```
+    pub fn route(mut self, pattern: &str, embedded_spa: crate::EmbeddedSpa) -> SpaRouteBuilder {
+        let embed_dir = embedded_spa.build_path();
+
+        // Smart inference from SPA directory
+        let inferred = crate::utils::infer_from_build_dir(&embedded_spa.spa_dir)
+            .unwrap_or_else(|_| crate::utils::InferredConfig::default_for_dir(&embed_dir));
+
+        let route = SpaRouteConfig {
+            pattern: pattern.to_string(),
+            embed_dir,
+            dev_proxy_url: inferred.dev_url,
+            dev_command: inferred.dev_command,
+            working_dir: inferred.working_dir,
+            fallback_file: Some("index.html".to_string()),
+            open_browser: false,
+        };
+        self.routes.push(route);
+        let route_index = self.routes.len() - 1;
+
+        SpaRouteBuilder {
+            heisenberg: self,
+            route_index,
+        }
+    }
+
     /// Get the routes
     pub fn routes(&self) -> &[SpaRouteConfig] {
         &self.routes
