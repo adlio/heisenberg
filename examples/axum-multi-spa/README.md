@@ -87,34 +87,34 @@ In this example:
 ## Configuration Breakdown
 
 ```rust
+// Embed each SPA's assets with unique identifiers
+let admin = heisenberg::embed_spa!("./admin-dist", admin);
+let app = heisenberg::embed_spa!("./app-dist", app);
+let landing = heisenberg::embed_spa!("./landing-dist", landing);
+
+// Configure routes and dev server settings
 let heisenberg_config = Heisenberg::new()
     // Admin panel configuration
-    .spa("./admin-dist")
-    .pattern("/admin/*")
-    .dev_server("http://localhost:3001")
-    .dev_command(["npm", "run", "dev:admin"])
-    .working_dir("./admin-frontend")
-    .fallback_file("index.html")
-    .open_browser(false)
+    .route("/admin/*", admin)
+        .dev_server("http://localhost:3001")
+        .dev_command(["npm", "run", "dev:admin"])
+        .working_dir("./admin-frontend")
+        .open_browser(false)
     
     // Main app configuration  
-    .spa("./app-dist")
-    .pattern("/app/*")
-    .dev_server("http://localhost:3002")
-    .dev_command(["npm", "run", "dev:app"])
-    .working_dir("./app-frontend")
-    .fallback_file("index.html")
-    .open_browser(false)
+    .route("/app/*", app)
+        .dev_server("http://localhost:3002")
+        .dev_command(["npm", "run", "dev:app"])
+        .working_dir("./app-frontend")
+        .open_browser(false)
     
     // Landing page (catch-all)
-    .spa("./landing-dist")
-    .pattern("/*")
-    .dev_server("http://localhost:3000")
-    .dev_command(["npm", "run", "dev"])
-    .working_dir("./landing-frontend")
-    .fallback_file("index.html")
-    .open_browser(true)
-    .build(); // Only open browser for main entry point
+    .route("/*", landing)
+        .dev_server("http://localhost:3000")
+        .dev_command(["npm", "run", "dev"])
+        .working_dir("./landing-frontend")
+        .open_browser(true)  // Only open browser for main entry point
+    .build();
 ```
 
 ## Real-World Usage

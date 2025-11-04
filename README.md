@@ -26,12 +26,12 @@ Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switc
 heisenberg = "0.2"
 axum = "0.7"
 tokio = { version = "1.35", features = ["full"] }
-rust-embed = "8.0"  # Required by embed_spa_assets! macro
-ctor = "0.2"        # Required by embed_spa_assets! macro
-paste = "1.0"       # Required by embed_spa_assets! macro
+rust-embed = "8.0"  # Required by embed_spa! macro
+ctor = "0.2"        # Required by embed_spa! macro
+paste = "1.0"       # Required by embed_spa! macro
 ```
 
-**Note:** These dependencies are required because `embed_spa_assets!()` uses proc macros that must run in your crate's compilation context.
+**Note:** These dependencies are required because `embed_spa!()` uses proc macros that must run in your crate's compilation context.
 
 ### 2. Basic setup
 
@@ -124,7 +124,7 @@ For custom dev server settings:
 use heisenberg::Heisenberg;
 
 // Embed assets (required for production)
-heisenberg::embed_spa_assets!("./frontend/dist");
+heisenberg::embed_spa!("./frontend/dist");
 
 // Configure with custom settings
 let config = Heisenberg::new()
@@ -155,7 +155,7 @@ cd frontend && npm run prod && cd ..
 cargo build --release
 ```
 
-Both `embed_spa_assets!()` and `.spa()` must point to wherever your build outputs files.
+Both `embed_spa!()` and `.spa()` must point to wherever your build outputs files.
 
 ### Multiple SPAs
 ```rust
@@ -181,7 +181,7 @@ let config = Heisenberg::new()
 | `HEISENBERG_MODE=embed cargo run` | Embed | Force embed mode |
 | `HEISENBERG_MODE=proxy cargo build --release` | Proxy | Force proxy mode |
 
-**Important:** Assets are embedded at compile time using `embed_spa_assets!()`. You must build your frontend first (e.g., `npm run build`) before `cargo build --release`.
+**Important:** Assets are embedded at compile time using `embed_spa!()`. You must build your frontend first (e.g., `npm run build`) before `cargo build --release`.
 
 ## 📊 Debugging
 

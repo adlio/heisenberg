@@ -106,7 +106,7 @@ axum-sveltekit/
 ### One-Line Setup
 ```rust
 // Embeds assets and configures Heisenberg in one line
-let config = heisenberg::embed_spa_assets!("./web/build");
+let config = heisenberg::embed_spa!("./web/build");
 
 let app = Router::new()
     .nest("/api", api_routes)
@@ -143,14 +143,14 @@ cd web && npm run prod && cd ..
 cargo build --release
 ```
 
-The `embed_spa_assets!()` macro path must point to wherever your build outputs files.
+The `embed_spa!()` macro path must point to wherever your build outputs files.
 
 ### Custom Output Directory
 If your build outputs to a different location:
 
 ```rust
 // In src/main.rs
-let config = heisenberg::embed_spa_assets!("./web/dist");
+let config = heisenberg::embed_spa!("./web/dist");
 ```
 
 ```javascript
@@ -168,12 +168,12 @@ Your Cargo.toml needs these for asset embedding:
 ```toml
 [dependencies]
 heisenberg = { version = "0.2", features = ["tower"] }
-rust-embed = "8.0"  # Required by embed_spa_assets! macro
-ctor = "0.2"        # Required by embed_spa_assets! macro
-paste = "1.0"       # Required by embed_spa_assets! macro
+rust-embed = "8.0"  # Required by embed_spa! macro
+ctor = "0.2"        # Required by embed_spa! macro
+paste = "1.0"       # Required by embed_spa! macro
 ```
 
-**Why are these required?** The `embed_spa_assets!()` macro uses proc macros that must run in your crate's compilation context.
+**Why are these required?** The `embed_spa!()` macro uses proc macros that must run in your crate's compilation context.
 
 ## WebSocket HMR Proxying
 
