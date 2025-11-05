@@ -20,10 +20,7 @@ pub fn detect_mode() -> Mode {
         }
     }
 
-    // Check if we're in debug or release mode
-    if cfg!(debug_assertions) {
-        Mode::Proxy
-    } else {
-        Mode::Embed
-    }
+    // Default to Embed mode for all builds
+    // Use HEISENBERG_MODE=proxy or cargo heisenberg run for development
+    Mode::Embed
 }
