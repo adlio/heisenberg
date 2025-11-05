@@ -31,27 +31,20 @@ pub fn run(cargo_args: Vec<String>) -> Result<()> {
         infer_spa_config()?
     };
 
-    // Check if node_modules exists, run npm install if not
+    // Start frontend dev server (with npm install if needed)
     let node_modules = spa.working_dir.join("node_modules");
-    if !node_modules.exists() {
-        println!("📦 Installing dependencies...");
-        let install_status = Command::new("npm")
-            .arg("install")
-            .current_dir(&spa.working_dir)
-            .status()
-            .context("Failed to run npm install")?;
-
-        if !install_status.success() {
-            anyhow::bail!("npm install failed");
-        }
-    }
-
-    // Start frontend dev server
     let dev_cmd = spa.dev_command.as_deref().unwrap_or("npm run dev");
-    let parts: Vec<&str> = dev_cmd.split_whitespace().collect();
 
-    let frontend = Command::new(parts[0])
-        .args(&parts[1..])
+    // If node_modules doesn't exist, prepend npm install
+    let full_cmd = if !node_modules.exists() {
+        format!("npm install && {}", dev_cmd)
+    } else {
+        dev_cmd.to_string()
+    };
+
+    let frontend = Command::new("sh")
+        .arg("-c")
+        .arg(&full_cmd)
         .current_dir(&spa.working_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
