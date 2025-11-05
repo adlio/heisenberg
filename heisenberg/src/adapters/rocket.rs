@@ -109,6 +109,7 @@ async fn proxy_request(
         .map_err(|_| rocket::http::Status::BadGateway)?;
 
     let status_code = response.status().as_u16();
+    let headers = response.headers().clone();
     let body = response
         .bytes()
         .await
@@ -117,8 +118,19 @@ async fn proxy_request(
     let rocket_status = rocket::http::Status::from_code(status_code)
         .unwrap_or(rocket::http::Status::InternalServerError);
 
-    let response = Response::build()
-        .status(rocket_status)
+    let mut response_builder = Response::build();
+    response_builder.status(rocket_status);
+
+    // Copy content-type and other important headers
+    if let Some(content_type) = headers.get("content-type") {
+        if let Ok(ct_str) = content_type.to_str() {
+            if let Some(content_type) = rocket::http::ContentType::parse_flexible(ct_str) {
+                response_builder.header(content_type);
+            }
+        }
+    }
+
+    let response = response_builder
         .sized_body(body.len(), Cursor::new(body))
         .finalize();
 
