@@ -17,24 +17,8 @@ pub fn run(cargo_args: Vec<String>) -> Result<()> {
             build_spa(&wrapper.spa)?;
         }
     } else {
-        // Smart defaults: look for ./web or ./frontend
-        use std::path::Path;
-        let working_dir = if Path::new("./web/package.json").exists() {
-            "./web"
-        } else if Path::new("./frontend/package.json").exists() {
-            "./frontend"
-        } else {
-            anyhow::bail!("No frontend found. Create heisenberg.toml or add ./web/package.json or ./frontend/package.json");
-        };
-
-        let spa = heisenberg::config::SpaConfig {
-            working_dir: working_dir.into(),
-            output_dir: format!("{}/build", working_dir).into(),
-            dev_command: None,
-            build_command: None,
-            dev_server: None,
-        };
-
+        // Smart defaults: infer from project structure
+        let spa = infer_spa_config()?;
         build_spa(&spa)?;
     }
 
@@ -71,4 +55,55 @@ fn build_spa(spa: &heisenberg::config::SpaConfig) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn infer_spa_config() -> Result<heisenberg::config::SpaConfig> {
+    use std::path::{Path, PathBuf};
+
+    // Look for ./web or ./frontend
+    let working_dir = if Path::new("./web/package.json").exists() {
+        PathBuf::from("./web")
+    } else if Path::new("./frontend/package.json").exists() {
+        PathBuf::from("./frontend")
+    } else {
+        anyhow::bail!(
+            "No frontend found. Create heisenberg.toml or add ./web/package.json or ./frontend/package.json"
+        );
+    };
+
+    // Infer output directory
+    let output_dir = ["build", "dist", ".next", ".svelte-kit/output"]
+        .iter()
+        .map(|d| working_dir.join(d))
+        .find(|p| p.exists())
+        .unwrap_or_else(|| working_dir.join("build"));
+
+    // Infer build command from package.json
+    let build_command = if let Ok(package_json_content) =
+        std::fs::read_to_string(working_dir.join("package.json"))
+    {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&package_json_content) {
+            json.get("scripts")
+                .and_then(|s| s.as_object())
+                .and_then(|scripts| {
+                    // Try common build script names
+                    ["build", "build:prod", "build:production"]
+                        .iter()
+                        .find(|name| scripts.contains_key(**name))
+                        .map(|name| format!("npm run {}", name))
+                })
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    Ok(heisenberg::config::SpaConfig {
+        working_dir,
+        output_dir,
+        dev_command: None,
+        build_command,
+        dev_server: None,
+    })
 }

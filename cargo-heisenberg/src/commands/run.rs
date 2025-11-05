@@ -27,23 +27,8 @@ pub fn run(cargo_args: Vec<String>) -> Result<()> {
             .spa
             .context("No default SPA configured in heisenberg.toml")?
     } else {
-        // Smart defaults: look for ./web or ./frontend
-        use std::path::Path;
-        let working_dir = if Path::new("./web/package.json").exists() {
-            "./web"
-        } else if Path::new("./frontend/package.json").exists() {
-            "./frontend"
-        } else {
-            anyhow::bail!("No frontend found. Create heisenberg.toml or add ./web/package.json or ./frontend/package.json");
-        };
-
-        heisenberg::config::SpaConfig {
-            working_dir: working_dir.into(),
-            output_dir: format!("{}/build", working_dir).into(),
-            dev_command: None,
-            build_command: None,
-            dev_server: None,
-        }
+        // Smart defaults: infer from project structure
+        infer_spa_config()?
     };
 
     // Start frontend dev server
@@ -184,4 +169,38 @@ fn run_tui(mut frontend: Child, mut backend: Child) -> Result<()> {
     )?;
 
     Ok(())
+}
+
+fn infer_spa_config() -> Result<heisenberg::config::SpaConfig> {
+    use std::path::{Path, PathBuf};
+
+    // Look for ./web or ./frontend
+    let working_dir = if Path::new("./web/package.json").exists() {
+        PathBuf::from("./web")
+    } else if Path::new("./frontend/package.json").exists() {
+        PathBuf::from("./frontend")
+    } else {
+        anyhow::bail!(
+            "No frontend found. Create heisenberg.toml or add ./web/package.json or ./frontend/package.json"
+        );
+    };
+
+    // Infer output directory
+    let output_dir = ["build", "dist", ".next", ".svelte-kit/output"]
+        .iter()
+        .map(|d| working_dir.join(d))
+        .find(|p| p.exists())
+        .unwrap_or_else(|| working_dir.join("build"));
+
+    // Use library's smart inference for dev command and port
+    let inferred = heisenberg::utils::infer_from_build_dir(&output_dir)
+        .unwrap_or_else(|_| heisenberg::utils::InferredConfig::default_for_dir(&output_dir));
+
+    Ok(heisenberg::config::SpaConfig {
+        working_dir,
+        output_dir,
+        dev_command: Some(inferred.dev_command.join(" ")),
+        build_command: None,
+        dev_server: Some(inferred.dev_url),
+    })
 }

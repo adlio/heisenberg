@@ -88,7 +88,7 @@
 	<div class="info">
 		<p><a href="/about">About this example</a></p>
 		<p>Mode: <code>{import.meta.env.DEV ? 'Development (Proxy)' : 'Production (Embedded)'}</code></p>
-    <p>Aaron was here.</p>
+    <p>Back!</p>
 	</div>
 </main>
 
