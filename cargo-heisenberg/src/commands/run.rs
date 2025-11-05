@@ -63,7 +63,7 @@ pub fn run(cargo_args: Vec<String>) -> Result<()> {
 fn run_tui(mut frontend: Child, mut backend: Child) -> Result<()> {
     let (tx, rx) = mpsc::channel();
 
-    // Spawn log readers
+    // Spawn log readers for stdout
     let tx_fe = tx.clone();
     if let Some(stdout) = frontend.stdout.take() {
         thread::spawn(move || {
@@ -74,12 +74,34 @@ fn run_tui(mut frontend: Child, mut backend: Child) -> Result<()> {
         });
     }
 
+    // Spawn log readers for stderr
+    let tx_fe_err = tx.clone();
+    if let Some(stderr) = frontend.stderr.take() {
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines().map_while(Result::ok) {
+                let _ = tx_fe_err.send(LogSource::Frontend(line));
+            }
+        });
+    }
+
     let tx_be = tx.clone();
     if let Some(stdout) = backend.stdout.take() {
         thread::spawn(move || {
             let reader = BufReader::new(stdout);
             for line in reader.lines().map_while(Result::ok) {
                 let _ = tx_be.send(LogSource::Backend(line));
+            }
+        });
+    }
+
+    // Spawn log readers for backend stderr
+    let tx_be_err = tx.clone();
+    if let Some(stderr) = backend.stderr.take() {
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines().map_while(Result::ok) {
+                let _ = tx_be_err.send(LogSource::Backend(line));
             }
         });
     }
@@ -97,6 +119,8 @@ fn run_tui(mut frontend: Child, mut backend: Child) -> Result<()> {
 
     let mut frontend_logs = Vec::new();
     let mut backend_logs = Vec::new();
+    let mut frontend_exited = false;
+    let mut backend_exited = false;
 
     loop {
         // Collect logs
@@ -147,23 +171,51 @@ fn run_tui(mut frontend: Child, mut backend: Child) -> Result<()> {
             f.render_widget(Paragraph::new(fe_text).block(fe_block), chunks[0]);
             f.render_widget(Paragraph::new(be_text).block(be_block), chunks[1]);
 
-            let help = Paragraph::new("Press 'q' or 'c' to exit")
-                .style(Style::default().fg(Color::DarkGray));
+            let help_text = if frontend_exited || backend_exited {
+                "⚠️  Process exited - Press 'q', 'c', or ESC to exit"
+            } else {
+                "Press 'q', 'c', or ESC to exit"
+            };
+            let help = Paragraph::new(help_text).style(Style::default().fg(
+                if frontend_exited || backend_exited {
+                    Color::Yellow
+                } else {
+                    Color::DarkGray
+                },
+            ));
             f.render_widget(help, chunks[2]);
         })?;
 
         // Handle input
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                if key.code == KeyCode::Char('q') || key.code == KeyCode::Char('c') {
+                if key.code == KeyCode::Char('q')
+                    || key.code == KeyCode::Char('c')
+                    || key.code == KeyCode::Esc
+                {
                     break;
                 }
             }
         }
 
-        // Check if processes exited
-        if frontend.try_wait()?.is_some() || backend.try_wait()?.is_some() {
-            break;
+        // Check if processes exited (but don't exit TUI, just mark them)
+        if !frontend_exited {
+            if let Some(status) = frontend.try_wait()? {
+                frontend_exited = true;
+                frontend_logs.push(format!(
+                    "⚠️  Frontend process exited with status: {}",
+                    status
+                ));
+            }
+        }
+        if !backend_exited {
+            if let Some(status) = backend.try_wait()? {
+                backend_exited = true;
+                backend_logs.push(format!(
+                    "⚠️  Backend process exited with status: {}",
+                    status
+                ));
+            }
         }
     }
 
