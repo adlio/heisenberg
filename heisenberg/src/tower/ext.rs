@@ -6,53 +6,67 @@ use crate::EmbeddedSpa;
 
 /// Extension trait for Router-like types to add SPA support
 pub trait SpaExt: Sized {
-    /// Add SPA with automatic detection
+    /// Add SPA with automatic detection at root (/*)
     ///
-    /// Looks for ./web, ./frontend, or reads heisenberg.toml
+    /// Looks for ./web or ./frontend
     ///
     /// # Examples
     ///
     /// ```ignore
     /// let app = Router::new()
     ///     .route("/api/hello", get(handler))
-    ///     .spa();
+    ///     .spa();  // Mounts at /*
     /// ```
     fn spa(self) -> Self {
-        self.spa_from("./web")
+        self.spa_at("/*")
     }
 
-    /// Add SPA from working directory (where package.json lives)
+    /// Add SPA at specific route pattern
     ///
     /// # Examples
     ///
     /// ```ignore
+    /// // Single SPA at root
     /// let app = Router::new()
     ///     .route("/api/hello", get(handler))
-    ///     .spa_from("./web");  // References the app, not the output
+    ///     .spa_at("/*");
+    ///
+    /// // Multiple SPAs
+    /// let app = Router::new()
+    ///     .route("/api/hello", get(handler))
+    ///     .spa_at("/admin/*")
+    ///     .spa_at("/app/*");
     /// ```
-    fn spa_from(self, working_dir: &str) -> Self;
+    fn spa_at(self, route: &str) -> Self {
+        // Infer working dir from route
+        let working_dir = if route.starts_with("/admin") {
+            "./admin"
+        } else if route.starts_with("/app") {
+            "./app"
+        } else {
+            "./web"
+        };
+        self.spa_at_from(route, working_dir)
+    }
 
-    /// Add SPA with custom route pattern
+    /// Add SPA at route from specific working directory
     ///
     /// # Examples
     ///
     /// ```ignore
     /// let app = Router::new()
     ///     .route("/api/hello", get(handler))
-    ///     .spa_with_route("/app/*", "./dist");
+    ///     .spa_at_from("/admin/*", "./admin")
+    ///     .spa_at_from("/app/*", "./frontend");
     /// ```
-    fn spa_with_route(self, route: &str, path: &str) -> Self;
+    fn spa_at_from(self, route: &str, working_dir: &str) -> Self;
 }
 
 impl<S> SpaExt for axum::Router<S>
 where
     S: Clone + Send + Sync + 'static,
 {
-    fn spa_from(self, working_dir: &str) -> Self {
-        self.spa_with_route("/*", working_dir)
-    }
-
-    fn spa_with_route(self, route: &str, working_dir: &str) -> Self {
+    fn spa_at_from(self, route: &str, working_dir: &str) -> Self {
         // Infer output directory from working directory
         let output_dir = infer_output_dir(working_dir);
         let embedded = EmbeddedSpa::new(&output_dir, "");
