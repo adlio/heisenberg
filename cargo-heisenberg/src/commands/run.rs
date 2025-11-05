@@ -43,10 +43,11 @@ pub fn run(cargo_args: Vec<String>) -> Result<()> {
         .spawn()
         .context("Failed to start frontend dev server")?;
 
-    // Start backend
+    // Start backend with env var to disable its own autostart
     let backend = Command::new("cargo")
         .arg("run")
         .args(&cargo_args)
+        .env("HEISENBERG_AUTOSTART_ORIGIN", "false")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
