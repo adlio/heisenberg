@@ -111,7 +111,11 @@ fn run_tui(mut frontend: Child, mut backend: Child) -> Result<()> {
         terminal.draw(|f| {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .constraints([
+                    Constraint::Percentage(50),
+                    Constraint::Percentage(50),
+                    Constraint::Length(1),
+                ])
                 .split(f.size());
 
             let fe_text: Vec<Line> = frontend_logs
@@ -142,6 +146,10 @@ fn run_tui(mut frontend: Child, mut backend: Child) -> Result<()> {
 
             f.render_widget(Paragraph::new(fe_text).block(fe_block), chunks[0]);
             f.render_widget(Paragraph::new(be_text).block(be_block), chunks[1]);
+
+            let help = Paragraph::new("Press 'q' or 'c' to exit")
+                .style(Style::default().fg(Color::DarkGray));
+            f.render_widget(help, chunks[2]);
         })?;
 
         // Handle input
