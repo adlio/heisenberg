@@ -31,6 +31,21 @@ pub fn run(cargo_args: Vec<String>) -> Result<()> {
         infer_spa_config()?
     };
 
+    // Check if node_modules exists, run npm install if not
+    let node_modules = spa.working_dir.join("node_modules");
+    if !node_modules.exists() {
+        println!("📦 Installing dependencies...");
+        let install_status = Command::new("npm")
+            .arg("install")
+            .current_dir(&spa.working_dir)
+            .status()
+            .context("Failed to run npm install")?;
+
+        if !install_status.success() {
+            anyhow::bail!("npm install failed");
+        }
+    }
+
     // Start frontend dev server
     let dev_cmd = spa.dev_command.as_deref().unwrap_or("npm run dev");
     let parts: Vec<&str> = dev_cmd.split_whitespace().collect();

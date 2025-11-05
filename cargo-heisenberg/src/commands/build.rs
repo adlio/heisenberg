@@ -39,6 +39,21 @@ pub fn run(cargo_args: Vec<String>) -> Result<()> {
 }
 
 fn build_spa(spa: &heisenberg::config::SpaConfig) -> Result<()> {
+    // Check if node_modules exists, run npm install if not
+    let node_modules = spa.working_dir.join("node_modules");
+    if !node_modules.exists() {
+        println!("📦 Installing dependencies...");
+        let install_status = Command::new("npm")
+            .arg("install")
+            .current_dir(&spa.working_dir)
+            .status()
+            .context("Failed to run npm install")?;
+
+        if !install_status.success() {
+            anyhow::bail!("npm install failed");
+        }
+    }
+
     let build_cmd = spa.build_command.as_deref().unwrap_or("npm run build");
 
     println!("🏗️  Building frontend: {}", build_cmd);
