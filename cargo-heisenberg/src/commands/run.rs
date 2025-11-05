@@ -21,14 +21,30 @@ enum LogSource {
 }
 
 pub fn run(cargo_args: Vec<String>) -> Result<()> {
-    let config = HeisenbergConfig::from_file("heisenberg.toml")
-        .map_err(|e| anyhow::anyhow!("{}", e))
-        .context("Failed to read heisenberg.toml. Run 'cargo heisenberg init' first.")?;
+    // Try to load config, or use smart defaults
+    let spa = if let Ok(config) = HeisenbergConfig::from_file("heisenberg.toml") {
+        config
+            .spa
+            .context("No default SPA configured in heisenberg.toml")?
+    } else {
+        // Smart defaults: look for ./web or ./frontend
+        use std::path::Path;
+        let working_dir = if Path::new("./web/package.json").exists() {
+            "./web"
+        } else if Path::new("./frontend/package.json").exists() {
+            "./frontend"
+        } else {
+            anyhow::bail!("No frontend found. Create heisenberg.toml or add ./web/package.json or ./frontend/package.json");
+        };
 
-    let spa = config
-        .spa
-        .as_ref()
-        .context("No default SPA configured in heisenberg.toml")?;
+        heisenberg::config::SpaConfig {
+            working_dir: working_dir.into(),
+            output_dir: format!("{}/build", working_dir).into(),
+            dev_command: None,
+            build_command: None,
+            dev_server: None,
+        }
+    };
 
     // Start frontend dev server
     let dev_cmd = spa.dev_command.as_deref().unwrap_or("npm run dev");
