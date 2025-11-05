@@ -55,10 +55,6 @@ fn test_mode_detection_default_fallback() {
     env::remove_var("HEISENBERG_MODE");
     let mode = detect_mode();
 
-    // Should match build configuration
-    #[cfg(debug_assertions)]
-    assert_eq!(mode, Mode::Proxy);
-
-    #[cfg(not(debug_assertions))]
+    // Default is always Embed mode
     assert_eq!(mode, Mode::Embed);
 }
