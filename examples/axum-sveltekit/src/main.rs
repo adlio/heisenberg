@@ -5,6 +5,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use heisenberg::SpaExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -46,6 +47,7 @@ async fn create_todo(
     println!("POST /api/todos 200 - created #{}", id);
     Ok(Json(todo))
 }
+
 async fn toggle_todo(
     Path(id): Path<u32>,
     axum::extract::State(store): axum::extract::State<TodoStore>,
@@ -65,32 +67,20 @@ async fn toggle_todo(
 async fn main() {
     let store: TodoStore = Arc::new(Mutex::new(HashMap::new()));
 
-    let api_routes = Router::new()
-        .route("/todos", get(get_todos).post(create_todo))
-        .route("/todos/:id/toggle", post(toggle_todo))
-        .with_state(store);
-
-    // Embed assets and configure Heisenberg
-    let app = heisenberg::embed_spa!("./web/build");
-    let config = heisenberg::Heisenberg::new().route("/*", app).build();
-
     let app = Router::new()
-        .nest("/api", api_routes)
-        .layer(heisenberg::HeisenbergLayer::new(config));
+        .route("/api/todos", get(get_todos).post(create_todo))
+        .route("/api/todos/:id/toggle", post(toggle_todo))
+        .with_state(store)
+        .spa_at_from("/*", "./web"); // One line! References the app, not the output
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3001")
         .await
-        .expect("Failed to bind to 127.0.0.1:3001 - port may already be in use");
+        .unwrap_or_else(|_| panic!("Failed to bind to 127.0.0.1:3001"));
 
     println!("🚀 Server running on http://127.0.0.1:3001\n");
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(heisenberg::shutdown_signal())
         .await
         .unwrap();
-}
-
-async fn shutdown_signal() {
-    let _ = tokio::signal::ctrl_c().await;
-    println!("\n🛑 Shutting down gracefully...");
 }

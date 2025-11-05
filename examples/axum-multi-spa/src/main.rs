@@ -1,8 +1,7 @@
 use axum::{extract::Path, response::Json, routing::get, Router};
-use heisenberg::{Heisenberg, HeisenbergLayer};
+use heisenberg::SpaExt;
 use serde_json::{json, Value};
 use std::net::SocketAddr;
-use tower::ServiceBuilder;
 
 // API handlers for different services
 async fn admin_api_handler() -> Json<Value> {
@@ -27,8 +26,7 @@ async fn api_status_handler() -> Json<Value> {
         "services": {
             "admin": "running",
             "app": "running"
-        },
-        "timestamp": chrono::Utc::now().to_rfc3339()
+        }
     }))
 }
 
@@ -42,35 +40,6 @@ async fn user_handler(Path(user_id): Path<String>) -> Json<Value> {
 
 #[tokio::main]
 async fn main() {
-    // Configure Heisenberg with multiple SPA routes
-    let heisenberg_config = Heisenberg::new()
-        // Admin panel on /admin/* - serves from admin-dist/
-        .spa("./admin-dist")
-        .pattern("/admin/*")
-        .dev_server("http://localhost:3001")
-        .dev_command(["npm", "run", "dev:admin"])
-        .working_dir("./admin-frontend")
-        .fallback_file("index.html")
-        .open_browser(false)
-        // Main application on /app/* - serves from app-dist/
-        .spa("./app-dist")
-        .pattern("/app/*")
-        .dev_server("http://localhost:3002")
-        .dev_command(["npm", "run", "dev:app"])
-        .working_dir("./app-frontend")
-        .fallback_file("index.html")
-        .open_browser(false)
-        // Landing page on /* (catch-all) - serves from landing-dist/
-        .spa("./landing-dist")
-        .pattern("/*")
-        .dev_server("http://localhost:3000")
-        .dev_command(["npm", "run", "dev"])
-        .working_dir("./landing-frontend")
-        .fallback_file("index.html")
-        .open_browser(true)
-        .build(); // Only open browser for main landing page
-
-    // Create Axum app with API routes for different services
     let app = Router::new()
         // Admin API routes
         .route("/api/admin", get(admin_api_handler))
@@ -80,10 +49,11 @@ async fn main() {
         .route("/api/app/users/:user_id", get(user_handler))
         // Global API routes
         .route("/api/status", get(api_status_handler))
-        // Add Heisenberg layer for SPA serving
-        .layer(ServiceBuilder::new().layer(HeisenbergLayer::new(heisenberg_config)));
+        // Multiple SPAs - clean and simple!
+        .spa_at_from("/admin/*", "./admin-dist")
+        .spa_at_from("/app/*", "./app-dist")
+        .spa_at_from("/*", "./landing-dist");
 
-    // Start server
     let addr = SocketAddr::from(([127, 0, 0, 1], 8081));
     println!("🚀 Multi-SPA Server running on http://{}", addr);
     println!("📊 Admin Panel: http://{}/admin/", addr);
@@ -93,6 +63,10 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await
-        .unwrap_or_else(|_| panic!("Failed to bind to {} - port may already be in use", addr));
-    axum::serve(listener, app).await.unwrap();
+        .unwrap_or_else(|_| panic!("Failed to bind to {}", addr));
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(heisenberg::shutdown_signal())
+        .await
+        .unwrap();
 }
