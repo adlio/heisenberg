@@ -20,7 +20,7 @@ use heisenberg::SpaExt;
 
 let app = Router::new()
     .route("/api/hello", get(hello))
-    .spa("./dist");  // Just works!
+    .spa();  // Just works! Auto-detects ./web or ./frontend
 ```
 
 ## Features Demonstrated

@@ -16,7 +16,7 @@ async fn hello() -> Json<Message> {
 #[tokio::main]
 async fn main() {
     // Super simple API - just add .spa() to your router!
-    let app = Router::new().route("/api/hello", get(hello)).spa("./dist"); // That's it! One line.
+    let app = Router::new().route("/api/hello", get(hello)).spa(); // That's it! One line.
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
