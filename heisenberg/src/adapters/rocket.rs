@@ -54,6 +54,13 @@ pub async fn serve_spa(
     let path_str = path.to_string_lossy();
     let mode = detect_mode();
 
+    println!(
+        "🔍 Rocket: path={}, mode={:?}, env={:?}",
+        path_str,
+        mode,
+        std::env::var("HEISENBERG_MODE")
+    );
+
     // Find matching route configuration
     let route_config = config
         .routes
@@ -64,6 +71,33 @@ pub async fn serve_spa(
     match mode {
         Mode::Proxy => proxy_request(path, route_config).await,
         Mode::Embed => serve_embedded_asset(path, route_config).await,
+    }
+}
+
+/// Serve SPA content with full URI (including query parameters)
+///
+/// This is the preferred function for Rocket handlers as it preserves query strings.
+pub async fn serve_spa_uri(
+    uri: &str,
+    config: &Heisenberg,
+) -> Result<RocketResponse, rocket::http::Status> {
+    let mode = detect_mode();
+
+    println!("🔍 Rocket URI: uri={}, mode={:?}", uri, mode);
+
+    // Extract path without query for route matching
+    let path_only = uri.split('?').next().unwrap_or(uri);
+
+    // Find matching route configuration
+    let route_config = config
+        .routes
+        .iter()
+        .find(|route| path_matches(&route.pattern, path_only))
+        .ok_or(rocket::http::Status::NotFound)?;
+
+    match mode {
+        Mode::Proxy => proxy_request_uri(uri, route_config).await,
+        Mode::Embed => serve_embedded_asset(Path::new(path_only), route_config).await,
     }
 }
 
@@ -102,6 +136,8 @@ async fn proxy_request(
         path_str.trim_start_matches('/')
     );
 
+    println!("🌐 Proxying: {} -> {}", path_str, target_url);
+
     let response = client
         .get(&target_url)
         .send()
@@ -110,6 +146,12 @@ async fn proxy_request(
 
     let status_code = response.status().as_u16();
     let headers = response.headers().clone();
+
+    println!(
+        "📦 Response: status={}, content-type={:?}",
+        status_code,
+        headers.get("content-type")
+    );
     let body = response
         .bytes()
         .await
@@ -122,6 +164,67 @@ async fn proxy_request(
     response_builder.status(rocket_status);
 
     // Copy content-type and other important headers
+    if let Some(content_type) = headers.get("content-type") {
+        if let Ok(ct_str) = content_type.to_str() {
+            println!("🔧 Parsing content-type: {}", ct_str);
+            if let Some(content_type) = rocket::http::ContentType::parse_flexible(ct_str) {
+                println!("✅ Setting content-type: {:?}", content_type);
+                response_builder.header(content_type);
+            } else {
+                println!("❌ Failed to parse content-type");
+            }
+        }
+    } else {
+        println!("⚠️  No content-type header from Vite");
+    }
+
+    let response = response_builder
+        .sized_body(body.len(), Cursor::new(body))
+        .finalize();
+
+    Ok(RocketResponse { inner: response })
+}
+
+/// Proxy request with full URI (including query parameters)
+async fn proxy_request_uri(
+    uri: &str,
+    route_config: &crate::core::config::SpaRouteConfig,
+) -> Result<RocketResponse, rocket::http::Status> {
+    let client = reqwest::Client::new();
+    let target_url = format!(
+        "{}/{}",
+        route_config.dev_proxy_url.trim_end_matches('/'),
+        uri.trim_start_matches('/')
+    );
+
+    println!("🌐 Proxying URI: {} -> {}", uri, target_url);
+
+    let response = client
+        .get(&target_url)
+        .send()
+        .await
+        .map_err(|_| rocket::http::Status::BadGateway)?;
+
+    let status_code = response.status().as_u16();
+    let headers = response.headers().clone();
+
+    println!(
+        "📦 Response: status={}, content-type={:?}",
+        status_code,
+        headers.get("content-type")
+    );
+    let body = response
+        .bytes()
+        .await
+        .map_err(|_| rocket::http::Status::BadGateway)?;
+
+    let rocket_status = rocket::http::Status::from_code(status_code)
+        .unwrap_or(rocket::http::Status::InternalServerError);
+
+    let mut response_builder = Response::build();
+    response_builder.status(rocket_status);
+
+    // Copy content-type header
     if let Some(content_type) = headers.get("content-type") {
         if let Ok(ct_str) = content_type.to_str() {
             if let Some(content_type) = rocket::http::ContentType::parse_flexible(ct_str) {

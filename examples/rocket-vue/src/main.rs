@@ -1,18 +1,43 @@
 use heisenberg::{
-    adapters::rocket::{serve_spa, RocketResponse},
+    adapters::rocket::{serve_spa_uri, RocketResponse},
     Heisenberg,
 };
-use rocket::{get, http::Status, launch, routes, serde::json::Json, State};
-use std::path::PathBuf;
+use rocket::{
+    get,
+    http::Status,
+    launch,
+    request::{self, FromRequest, Request},
+    routes,
+    serde::json::Json,
+    State,
+};
 
-#[get("/<path..>")]
-async fn spa_handler(path: PathBuf, config: &State<Heisenberg>) -> Result<RocketResponse, Status> {
-    serve_spa(&path, config).await
+// Request guard to capture full URI with query string
+pub struct FullUri(String);
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for FullUri {
+    type Error = ();
+
+    async fn from_request(req: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        let path = req.uri().path().as_str();
+        let full = if let Some(query) = req.uri().query() {
+            format!("{}?{}", path, query.as_str())
+        } else {
+            path.to_string()
+        };
+        request::Outcome::Success(FullUri(full))
+    }
 }
 
-#[get("/")]
+#[get("/<_..>", rank = 2)]
+async fn spa_handler(uri: FullUri, config: &State<Heisenberg>) -> Result<RocketResponse, Status> {
+    serve_spa_uri(&uri.0, config).await
+}
+
+#[get("/", rank = 1)]
 async fn spa_root(config: &State<Heisenberg>) -> Result<RocketResponse, Status> {
-    serve_spa(&PathBuf::from("index.html"), config).await
+    serve_spa_uri("index.html", config).await
 }
 
 #[get("/hello")]

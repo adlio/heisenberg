@@ -8,7 +8,7 @@
       <strong>API Response:</strong><br>
       {{ response }}
     </div>
-    
+
     <h2>Features Demonstrated:</h2>
     <ul>
       <li>Live Vue development with HMR</li>
