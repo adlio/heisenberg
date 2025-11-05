@@ -2,25 +2,15 @@
 
 /// Embed SPA assets and return a handle
 ///
-/// This macro embeds assets from a SPA directory and returns an `EmbeddedSpa` handle
-/// that you pass to `Heisenberg::spa()` for configuration.
-///
 /// # Examples
 ///
 /// ```ignore
-/// // Single SPA
-/// let app = heisenberg::embed_spa!("./web");
-/// let config = Heisenberg::new()
-///     .spa("/*", app)
-///     .build();
+/// // Direct path
+/// let app = heisenberg::embed_spa!("./dist");
 ///
-/// // Multiple SPAs with unique identifiers
-/// let admin = heisenberg::embed_spa!("./web/admin", admin);
-/// let user = heisenberg::embed_spa!("./web/user", user);
-/// let config = Heisenberg::new()
-///     .spa("/admin/*", admin)
-///     .spa("/*", user)
-///     .build();
+/// // Multiple SPAs
+/// let admin = heisenberg::embed_spa!("./admin/dist", admin);
+/// let app = heisenberg::embed_spa!("./app/dist", app);
 /// ```
 #[macro_export]
 macro_rules! embed_spa {

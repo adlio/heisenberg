@@ -1,3 +1,5 @@
+mod commands;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -24,7 +26,7 @@ enum Commands {
         #[arg(last = true)]
         cargo_args: Vec<String>,
     },
-    /// Start frontend dev server and run cargo run
+    /// Start frontend dev server and run cargo run with TUI
     Run {
         /// Additional arguments to pass to cargo run
         #[arg(last = true)]
@@ -36,22 +38,8 @@ fn main() -> anyhow::Result<()> {
     let CargoCli::Heisenberg(cli) = CargoCli::parse();
 
     match cli.command {
-        Commands::Init => {
-            println!("🔧 Initializing heisenberg.toml...");
-            // TODO: Implement init logic
-            Ok(())
-        }
-        Commands::Build { cargo_args } => {
-            println!("🏗️  Building frontend assets...");
-            // TODO: Implement build logic
-            println!("📦 Running cargo build {:?}", cargo_args);
-            Ok(())
-        }
-        Commands::Run { cargo_args } => {
-            println!("🚀 Starting frontend dev server...");
-            // TODO: Implement run logic
-            println!("🦀 Running cargo run {:?}", cargo_args);
-            Ok(())
-        }
+        Commands::Init => commands::init::run(),
+        Commands::Build { cargo_args } => commands::build::run(cargo_args),
+        Commands::Run { cargo_args } => commands::run::run(cargo_args),
     }
 }
