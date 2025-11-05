@@ -1,0 +1,4 @@
+[spa]
+working_dir = "./web"
+output_dir = "./web/dist"
+dev_server = "http://localhost:3000"

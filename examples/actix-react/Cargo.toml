@@ -6,5 +6,6 @@ edition = "2021"
 [dependencies]
 heisenberg = { path = "../..", features = ["actix"] }
 actix-web = "4.0"
-tokio = { version = "1.0", features = ["full"] }
-serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+rust-embed = "8.0"
+chrono = "0.4"

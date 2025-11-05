@@ -5,7 +5,6 @@ use crate::core::mode::{detect_mode, Mode};
 use crate::core::router::Router;
 use crate::services::process::ProcessManager;
 use crate::services::proxy::ProxyService;
-use crate::services::static_files::StaticFileService;
 use http_body_util::BodyExt;
 use hyper::body::Bytes;
 use hyper::{Request, Response};
@@ -25,7 +24,6 @@ pub struct HeisenbergService<S> {
     router: Arc<Mutex<Router>>,
     mode: Mode,
     proxy_services: Arc<Mutex<HashMap<String, Arc<ProxyService>>>>,
-    static_services: Arc<Mutex<HashMap<String, Arc<StaticFileService>>>>,
     #[allow(dead_code)] // Kept alive for Drop cleanup
     process_manager: Option<Arc<ProcessManager>>,
 }
@@ -40,25 +38,13 @@ impl<S> HeisenbergService<S> {
         let mode = detect_mode();
         let router = Router::new(config.routes().to_vec(), mode)?;
 
-        // Pre-create services for each route
+        // Pre-create proxy services for proxy mode
         let mut proxy_services = HashMap::new();
-        let mut static_services = HashMap::new();
 
-        for route in config.routes() {
-            let key = route.pattern.clone();
-
-            match mode {
-                Mode::Proxy => {
-                    let proxy = Arc::new(ProxyService::new(route.dev_proxy_url.clone()));
-                    proxy_services.insert(key, proxy);
-                }
-                Mode::Embed => {
-                    let static_svc = Arc::new(StaticFileService::new(
-                        route.embed_dir.clone(),
-                        route.fallback_file.clone(),
-                    ));
-                    static_services.insert(key, static_svc);
-                }
+        if mode == Mode::Proxy {
+            for route in config.routes() {
+                let proxy = Arc::new(ProxyService::new(route.dev_proxy_url.clone()));
+                proxy_services.insert(route.pattern.clone(), proxy);
             }
         }
 
@@ -67,7 +53,6 @@ impl<S> HeisenbergService<S> {
             router: Arc::new(Mutex::new(router)),
             mode,
             proxy_services: Arc::new(Mutex::new(proxy_services)),
-            static_services: Arc::new(Mutex::new(static_services)),
             process_manager,
         })
     }
@@ -97,7 +82,6 @@ where
         let router = self.router.clone();
         let mode = self.mode;
         let proxy_services = self.proxy_services.clone();
-        let static_services = self.static_services.clone();
 
         Box::pin(async move {
             let path = req.uri().path().to_string();
@@ -167,6 +151,12 @@ where
                             proxy_services.get(&route_config.pattern).cloned()
                         };
                         if let Some(proxy) = proxy {
+                            println!(
+                                "→ {} {} → {}",
+                                req.method(),
+                                path,
+                                route_config.dev_proxy_url
+                            );
                             match proxy.proxy_request(&path, query.as_deref(), &headers).await {
                                 Ok(response) => {
                                     let (parts, body) = response.into_parts();
@@ -185,40 +175,37 @@ where
                         }
                     }
                     Mode::Embed => {
-                        // Try embedded assets first
-                        if let Ok(response) = crate::services::embed_registry::serve_embedded_asset(
+                        // Strip route prefix from path
+                        let stripped_path = if route_config.pattern.ends_with("/*") {
+                            let prefix = route_config.pattern.trim_end_matches("/*");
+                            path.strip_prefix(prefix)
+                                .unwrap_or(&path)
+                                .trim_start_matches('/')
+                        } else {
+                            path.trim_start_matches('/')
+                        };
+
+                        // Serve from embedded assets only
+                        match crate::services::embed_registry::serve_embedded_asset(
                             &route_config.embed_dir.to_string_lossy(),
-                            &path,
+                            stripped_path,
                             route_config.fallback_file.as_deref(),
                         ) {
-                            let (parts, body) = response.into_parts();
-                            let bytes = body.collect().await.unwrap().to_bytes();
-                            return Ok(Response::from_parts(parts, B::from(bytes)));
-                        }
-
-                        // Fall back to disk serving
-                        let static_svc = {
-                            let static_services = static_services.lock().unwrap();
-                            static_services.get(&route_config.pattern).cloned()
-                        };
-                        if let Some(static_svc) = static_svc {
-                            match static_svc.serve_file(&path).await {
-                                Ok(response) => {
-                                    let (parts, body) = response.into_parts();
-                                    let bytes = body.collect().await.unwrap().to_bytes();
-                                    return Ok(Response::from_parts(parts, B::from(bytes)));
-                                }
-                                Err(e) => {
-                                    #[cfg(feature = "logging")]
-                                    debug!(error = %e, "Static file serve failed");
-                                    return Ok(Response::builder()
-                                        .status(404)
-                                        .body(B::from(Bytes::from(format!(
-                                            "File not found: {}",
-                                            e
-                                        ))))
-                                        .unwrap());
-                                }
+                            Ok(response) => {
+                                let (parts, body) = response.into_parts();
+                                let bytes = body.collect().await.unwrap().to_bytes();
+                                return Ok(Response::from_parts(parts, B::from(bytes)));
+                            }
+                            Err(e) => {
+                                #[cfg(feature = "logging")]
+                                debug!(error = %e, "Embedded asset not found");
+                                return Ok(Response::builder()
+                                    .status(404)
+                                    .body(B::from(Bytes::from(format!(
+                                        "Asset not found (embed mode requires embed_spa! macro): {}",
+                                        e
+                                    ))))
+                                    .unwrap());
                             }
                         }
                     }

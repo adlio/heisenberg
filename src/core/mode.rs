@@ -14,16 +14,13 @@ pub fn detect_mode() -> Mode {
     // Check environment variable override first
     if let Ok(mode) = std::env::var("HEISENBERG_MODE") {
         match mode.to_lowercase().as_str() {
-            "embed" | "production" | "prod" => return Mode::Embed,
-            "proxy" | "development" | "dev" => return Mode::Proxy,
+            "embed" => return Mode::Embed,
+            "proxy" => return Mode::Proxy,
             _ => {} // Fall through to default detection
         }
     }
 
-    // Check if we're in debug or release mode
-    if cfg!(debug_assertions) {
-        Mode::Proxy
-    } else {
-        Mode::Embed
-    }
+    // Default to Embed mode
+    // Use `cargo heisenberg run` or HEISENBERG_MODE=proxy for development
+    Mode::Embed
 }

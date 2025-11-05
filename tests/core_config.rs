@@ -1,6 +1,6 @@
 //! Tests for core configuration functionality
 
-use heisenberg::Heisenberg;
+use heisenberg::{EmbeddedSpa, Heisenberg};
 use std::path::PathBuf;
 
 #[test]
@@ -17,7 +17,8 @@ fn test_default_config() {
 
 #[test]
 fn test_single_spa_route() {
-    let config = Heisenberg::new().spa("./dist").build();
+    let spa = EmbeddedSpa::new("./dist", "");
+    let config = Heisenberg::new().route("/*", spa).build();
     let routes = config.routes();
 
     assert_eq!(routes.len(), 1);
@@ -28,9 +29,11 @@ fn test_single_spa_route() {
 
 #[test]
 fn test_multiple_spa_routes() {
+    let spa1 = EmbeddedSpa::new("./admin/dist", "");
+    let spa2 = EmbeddedSpa::new("./app/dist", "");
     let config = Heisenberg::new()
-        .spa("./admin/dist")
-        .spa("./app/dist")
+        .route("/*", spa1)
+        .route("/app/*", spa2)
         .build();
 
     let routes = config.routes();
@@ -41,9 +44,8 @@ fn test_multiple_spa_routes() {
 
 #[test]
 fn test_pathbuf_conversion() {
-    let config = Heisenberg::new()
-        .spa(PathBuf::from("/absolute/path"))
-        .build();
+    let spa = EmbeddedSpa::new(PathBuf::from("/absolute/path"), "");
+    let config = Heisenberg::new().route("/*", spa).build();
     let routes = config.routes();
 
     assert_eq!(routes[0].embed_dir, PathBuf::from("/absolute/path"));
@@ -51,31 +53,31 @@ fn test_pathbuf_conversion() {
 
 #[test]
 fn test_browser_opening_configuration() {
+    let spa = EmbeddedSpa::new("./dist", "");
     let config = Heisenberg::new()
-        .spa("./dist")
+        .route("/*", spa)
         .open_browser(true)
-        .dev_server("http://localhost:3000")
         .build();
 
     let routes = config.routes();
     assert_eq!(routes.len(), 1);
     assert!(routes[0].open_browser);
-    assert_eq!(routes[0].dev_proxy_url, "http://localhost:3000");
 }
 
 #[test]
 fn test_browser_opening_default_false() {
-    let config = Heisenberg::new().spa("./dist").build();
+    let spa = EmbeddedSpa::new("./dist", "");
+    let config = Heisenberg::new().route("/*", spa).build();
     let routes = config.routes();
 
-    assert!(!routes[0].open_browser); // Conservative default
+    assert!(!routes[0].open_browser);
 }
 
 #[test]
 fn test_advanced_configuration() {
+    let spa = EmbeddedSpa::new("./dist", "");
     let config = Heisenberg::new()
-        .spa("./dist")
-        .dev_command(["yarn", "dev"])
+        .route("/*", spa)
         .working_dir("./frontend")
         .fallback_file("app.html")
         .pattern("/app/*")
@@ -83,7 +85,6 @@ fn test_advanced_configuration() {
 
     let routes = config.routes();
     assert_eq!(routes.len(), 1);
-    assert_eq!(routes[0].dev_command, vec!["yarn", "dev"]);
     assert_eq!(routes[0].working_dir, PathBuf::from("./frontend"));
     assert_eq!(routes[0].fallback_file, Some("app.html".to_string()));
     assert_eq!(routes[0].pattern, "/app/*");
@@ -93,10 +94,11 @@ fn test_advanced_configuration() {
 fn test_global_settings() {
     use std::time::Duration;
 
+    let spa = EmbeddedSpa::new("./dist", "");
     let config = Heisenberg::new()
         .health_check_interval(Duration::from_secs(10))
         .proxy_timeout(Duration::from_secs(60))
-        .spa("./dist")
+        .route("/*", spa)
         .build();
 
     let settings = config.global_settings();
@@ -106,18 +108,19 @@ fn test_global_settings() {
 
 #[test]
 fn test_validation_success() {
-    let config = Heisenberg::new().spa("./dist").build();
+    let spa = EmbeddedSpa::new("./dist", "");
+    let config = Heisenberg::new().route("/*", spa).build();
 
     assert!(config.validate().is_ok());
 }
 
 #[test]
 fn test_validation_duplicate_patterns() {
+    let spa1 = EmbeddedSpa::new("./dist1", "");
+    let spa2 = EmbeddedSpa::new("./dist2", "");
     let config = Heisenberg::new()
-        .spa("./dist1")
-        .pattern("/*")
-        .spa("./dist2")
-        .pattern("/*")
+        .route("/*", spa1)
+        .route("/*", spa2)
         .build();
 
     assert!(config.validate().is_err());

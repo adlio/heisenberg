@@ -1,37 +1,46 @@
 # Actix-React Example
 
-Demonstrates Heisenberg's Actix-web adapter with a React-style frontend.
+Demonstrates Heisenberg with Actix-web and React.
 
-## Running
+## Prerequisites
+
+Install the `cargo-heisenberg` CLI tool:
 
 ```bash
-cd examples/actix-react
+# From crates.io (for your own projects)
+cargo install cargo-heisenberg
+
+# Or from local source (for running this example)
+cargo install --path ../../cargo-heisenberg
+```
+
+## Zero-Config Setup
+
+This example uses **no heisenberg.toml** file. Everything is inferred automatically:
+
+- **Working directory**: `./frontend` (detected by finding `package.json`)
+- **Output directory**: `./frontend/dist` (Vite default)
+- **Dev command**: `npm run dev` (from package.json scripts)
+- **Build command**: `npm run build` (from package.json scripts)
+- **Dev server**: `http://localhost:5173` (from vite.config.js)
+
+Heisenberg checks for frontend directories in this order: `./web`, `./frontend`, then root.
+
+## Development (Proxy Mode)
+
+```bash
+cargo heisenberg run
+```
+
+**Server:** http://127.0.0.1:8080  
+**API:** `/api/hello`  
+**Frontend:** Vite dev server on port 5173 (proxied at `/*` with HMR)
+
+## Production (Embed Mode)
+
+```bash
+cargo heisenberg build
 cargo run
 ```
 
-Then visit http://127.0.0.1:8080
-
-## What it demonstrates
-
-- Heisenberg Actix-web adapter integration
-- API routes served by Rust backend (`/api/hello`)
-- Static frontend served by Heisenberg adapter
-- Dual-mode operation (development/production)
-
-## API Endpoints
-
-- `GET /api/hello` - Returns JSON response from Actix-web backend
-
-## Testing HMR (Hot Module Reload)
-
-In development mode, this example would proxy to a React dev server.
-For manual testing:
-
-1. Start a React dev server on port 3000 (if available)
-2. Configure the example to proxy to `http://localhost:3000`
-3. Verify that changes to React components are reflected immediately
-
-## Current Mode
-
-This example demonstrates the adapter functionality with static files.
-The dual-mode behavior (dev proxy vs prod embedded) is handled by the adapter.
+In embed mode, built frontend assets are served directly from the binary.

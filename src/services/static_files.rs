@@ -1,4 +1,4 @@
-//! Static file serving for production mode
+//! Static file serving (deprecated - embed mode uses only embedded assets)
 
 use crate::error::HeisenbergError;
 use http_body_util::Full;

@@ -2,231 +2,194 @@
 
 [![Crates.io](https://img.shields.io/crates/v/heisenberg.svg)](https://crates.io/crates/heisenberg)
 [![Documentation](https://docs.rs/heisenberg/badge.svg)](https://docs.rs/heisenberg)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Framework-agnostic dual-mode web serving for Rust applications. Seamlessly switch between proxy mode (forwarding to frontend dev servers) and embed mode (serving embedded static assets).
+Heisenberg serves SPAs from Rust web applications. It switches between proxy mode (forwarding to a frontend dev server) and embed mode (serving assets compiled into your binary).
 
-## ✨ Features
+## How It Works
 
-- **🔄 Dual Mode**: Automatic proxy/embed mode switching
-- **🎯 Framework Agnostic**: Works with Axum, Warp, Actix-web, Rocket, and more
-- **🧠 Smart Inference**: Auto-detects frontend configuration from package.json
-- **⚡ Zero Config**: Works out-of-the-box with sensible defaults
-- **🔧 Process Management**: Handles frontend dev server lifecycle
-- **🔌 WebSocket Proxying**: Transparent HMR support for Vite, Next.js, CRA
-- **📱 SPA Support**: Client-side routing with fallback to index.html
-- **📊 Optional Logging**: Structured diagnostics with `tracing`
+In development, run `cargo heisenberg run`. This starts your frontend dev server and your Rust backend, proxying frontend requests (including WebSocket HMR) to the dev server.
 
-## 🚀 Quick Start
+For release builds, run `cargo heisenberg build --release`. This builds your frontend, then compiles the assets into your Rust binary using the `embed_spa!` macro.
 
-### 1. Add to your Cargo.toml
+## Quick Start
+
+Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-heisenberg = "0.2"
+heisenberg = "0.4"
 axum = "0.7"
 tokio = { version = "1.35", features = ["full"] }
-rust-embed = "8.0"  # Required by embed_spa! macro
-ctor = "0.2"        # Required by embed_spa! macro
-paste = "1.0"       # Required by embed_spa! macro
+rust-embed = "8.0"
 ```
 
-**Note:** These dependencies are required because `embed_spa!()` uses proc macros that must run in your crate's compilation context.
-
-### 2. Basic setup
+Write your server:
 
 ```rust
 use axum::{routing::get, Router};
-use heisenberg::HeisenbergLayer;
+use heisenberg::{Heisenberg, HeisenbergLayer};
 
 #[tokio::main]
 async fn main() {
-    // Embed assets and configure
-    let app = heisenberg::embed_spa!("./dist");
-    let config = Heisenberg::new().route("/*", app).build();
-    
-    let router = Router::new()
-        .route("/api/hello", get(|| async { "Hello API!" }))
+    let spa = heisenberg::embed_spa!();
+    let config = Heisenberg::new()
+        .route("/*", spa)
+        .dev_server("http://localhost:5173")
+        .build();
+
+    let app = Router::new()
+        .route("/api/hello", get(|| async { "Hello!" }))
         .layer(HeisenbergLayer::new(config));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    
-    // Graceful shutdown cleans up dev servers on Ctrl+C
-    axum::serve(listener, router)
-        .with_graceful_shutdown(shutdown_signal())
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+        .await
+        .unwrap();
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(heisenberg::shutdown_signal())
         .await
         .unwrap();
 }
-
-async fn shutdown_signal() {
-    let _ = tokio::signal::ctrl_c().await;
-}
 ```
 
-### 3. Run in different modes
+Install and run the cargo plugin:
 
 ```bash
-# Proxy mode - forwards to frontend dev server
-cargo run
+cargo install cargo-heisenberg
 
-# Embed mode - assets embedded in binary
-# (Build frontend first: cd frontend && npm run build)
-cargo build --release && ./target/release/your-app
+# Development (proxy mode with HMR)
+cargo heisenberg run
+
+# Release build (embeds assets)
+cargo heisenberg build --release
 ```
 
-That's it! Heisenberg automatically:
-- 🔍 Finds your `package.json` and extracts the dev command
-- 🚀 Starts your frontend dev server (`npm run dev`) in proxy mode
-- 🔗 Proxies frontend requests (including WebSocket HMR)
-- 📦 Embeds assets into binary in release builds
-- 🌐 Opens your browser automatically
-
-## 📖 Documentation
-
-- **[API Documentation](https://docs.rs/heisenberg)** - Complete API reference
-- **[Examples](examples/)** - Working examples for different frameworks
-
-## 🎯 Framework Support
-
-### Tower-based (Zero Config)
-Works automatically with any Tower-based framework:
-
-```rust
-// Axum
-let app = Router::new()
-    .route("/api/hello", get(handler))
-    .layer(HeisenbergLayer::new(heisenberg_config));
-```
-
-### Framework Adapters
-Helper functions for non-Tower frameworks:
-
-```rust
-// Actix-web
-use heisenberg::actix::serve_spa;
-
-// Rocket
-use heisenberg::rocket::serve_spa;
-```
-
-## ⚙️ Configuration
-
-### Smart Defaults
-```rust
-// Infers everything from your project structure
-Heisenberg::new().spa("./dist").build()
-```
-
-### Advanced Configuration
-For custom dev server settings:
-
-```rust
-use heisenberg::Heisenberg;
-
-// Embed assets (required for production)
-heisenberg::embed_spa!("./frontend/dist");
-
-// Configure with custom settings
-let config = Heisenberg::new()
-    .spa("./frontend/dist")
-        .dev_server("http://localhost:3000")  // Override auto-detected port
-        .dev_command(["npm", "run", "dev"])   // Override auto-detected command
-        .open_browser(true)
-    .build();
-```
-
-**Note:** Advanced configuration requires specifying the path twice - once for embedding, once for configuration.
-
-**Port Detection:** Heisenberg automatically detects dev server ports from:
-- CLI flags in package.json scripts (`--port 3000`, `-p 5173`)
-- Literal port numbers in vite.config.js (`port: 5173`)
-- Framework defaults (Vite→5173, Next.js→3000, CRA→3000)
-
-**Note:** Dynamic port configuration (variables, expressions) requires manual override with `.dev_server()`.
-
-### Custom Build Commands
-If you use a custom build command (not `npm run build`):
+## Cargo Plugin Commands
 
 ```bash
-# Run your custom build command first
-cd frontend && npm run prod && cd ..
-
-# Then build Rust binary (assets embedded during compilation)
-cargo build --release
+cargo heisenberg init    # Generate heisenberg.toml
+cargo heisenberg build   # Build frontend, then cargo build
+cargo heisenberg run     # Start frontend + backend with split-pane TUI
 ```
 
-Both `embed_spa!()` and `.spa()` must point to wherever your build outputs files.
+Add `--no-tui` to `cargo heisenberg run` for plain output (useful for copying error messages).
 
-### Multiple SPAs
+## Configuration
+
+### When You Don't Need heisenberg.toml
+
+The plugin auto-detects your frontend if you have a single SPA in `./web` or `./frontend`. No config file needed.
+
+### When You Need heisenberg.toml
+
+Create `heisenberg.toml` when you have:
+- Multiple SPAs
+- A frontend in a non-standard directory
+- Custom build or dev commands
+
+Single SPA example:
+
+```toml
+[spa]
+working_dir = "./client"
+output_dir = "./client/dist"
+```
+
+Multiple SPAs:
+
+```toml
+[[spa]]
+name = "app"
+working_dir = "./app"
+output_dir = "./app/dist"
+dev_server = "http://localhost:5173"
+
+[[spa]]
+name = "admin"
+working_dir = "./admin"
+output_dir = "./admin/dist"
+dev_server = "http://localhost:5174"
+```
+
+In your Rust code, reference named SPAs:
+
 ```rust
-// Embed each SPA with unique identifiers
-let admin = heisenberg::embed_spa!("./admin/dist", admin);
-let app = heisenberg::embed_spa!("./app/dist", app);
+let app = heisenberg::embed_spa!("app");
+let admin = heisenberg::embed_spa!("admin");
 
-// Configure with route patterns
 let config = Heisenberg::new()
     .route("/admin/*", admin)
     .route("/*", app)
     .build();
 ```
 
+## Mode Detection
 
-
-## 🔧 Mode Detection
-
-| Build Command | Mode | Behavior |
-|---------------|------|----------|
-| `cargo run` | Proxy | Forward to dev server |
-| `cargo build --release` | Embed | Serve embedded assets from binary |
+| Command | Mode | Behavior |
+|---------|------|----------|
+| `cargo heisenberg run` | Proxy | Forwards to dev server with HMR |
+| `cargo run` | Embed | Serves embedded assets |
+| `cargo build --release` | Embed | Compiles assets into binary |
+| `HEISENBERG_MODE=proxy cargo run` | Proxy | Force proxy mode |
 | `HEISENBERG_MODE=embed cargo run` | Embed | Force embed mode |
-| `HEISENBERG_MODE=proxy cargo build --release` | Proxy | Force proxy mode |
 
-**Important:** Assets are embedded at compile time using `embed_spa!()`. You must build your frontend first (e.g., `npm run build`) before `cargo build --release`.
+## Framework Support
 
-## 📊 Debugging
+### Axum
 
-Enable structured logging:
+```rust
+let spa = heisenberg::embed_spa!();
+let config = Heisenberg::new()
+    .route("/*", spa)
+    .build();
 
-```toml
-[dependencies]
-heisenberg = { version = "0.2", features = ["logging"] }
-tracing-subscriber = "0.3"
+let app = Router::new()
+    .route("/api/hello", get(handler))
+    .layer(HeisenbergLayer::new(config));
 ```
 
-```bash
-RUST_LOG=debug,heisenberg=trace cargo run
+### Actix-web
+
+```rust
+let spa = heisenberg::embed_spa!();
+let config = Heisenberg::new()
+    .route("/*", spa)
+    .build();
+
+HttpServer::new(move || {
+    App::new()
+        .app_data(web::Data::new(config.clone()))
+        .route("/api/hello", web::get().to(handler))
+        .default_service(web::to(heisenberg::adapters::actix::serve_spa))
+})
 ```
 
-## 🏗️ Examples
+### Rocket
 
-- **[SvelteKit](examples/axum-sveltekit/)** - ⭐ Showcase example with WebSocket HMR
-- **[Basic Axum](examples/axum-simple/)** - Simple Axum + React setup
-- **[Multi-SPA](examples/axum-multi-spa/)** - Multiple frontend applications
-- **[Actix-web](examples/actix-react/)** - Actix-web integration
-- **[Rocket](examples/rocket-vue/)** - Rocket integration
-- **[Logging](examples/logging-example/)** - Structured logging example
+```rust
+let spa = heisenberg::embed_spa!();
+let config = Heisenberg::new()
+    .route("/*", spa)
+    .build();
 
-## 🧪 Testing
-
-```bash
-# Run all tests including WebSocket proxying
-cargo test
-
-# Run specific WebSocket test
-cargo test --test websocket_proxy
-
-# Try the showcase example
-cd examples/axum-sveltekit && cargo run
+#[launch]
+fn rocket() -> _ {
+    rocket::build()
+        .manage(config)
+        .mount("/api", routes![hello])
+        .mount("/", spa_routes())
+}
 ```
 
-## 🤝 Contributing
+## Examples
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+- [axum-sveltekit](examples/axum-sveltekit/) - Axum with SvelteKit
+- [axum-multi-spa](examples/axum-multi-spa/) - Multiple SPAs with Axum
+- [actix-react](examples/actix-react/) - Actix-web with React
+- [rocket-vue](examples/rocket-vue/) - Rocket with Vue
+- [rocket-multi-spa](examples/rocket-multi-spa/) - Multiple SPAs with Rocket
 
-## 📄 License
+## License
 
-Licensed under either of:
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT License ([LICENSE-MIT](LICENSE-MIT))
-
-at your option.
+MIT License. See [LICENSE](LICENSE).

@@ -21,4 +21,12 @@ Thumbs.db
 # AI Agent Steering
 .amazonq
 .kiro
+.claude
 CLAUDE.md
+
+# Javascript Build Output
+examples/**/build
+examples/**/custom-build
+examples/**/dist
+examples/**/custom-dist
+node_modules

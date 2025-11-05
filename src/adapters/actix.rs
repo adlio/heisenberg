@@ -6,10 +6,11 @@
 use crate::core::config::Heisenberg;
 use crate::core::mode::{detect_mode, Mode};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult};
+use http_body_util::BodyExt;
 
 /// Serve SPA content through Actix-web
 ///
-/// This function handles both development (proxy) and production (embedded assets) modes
+/// This function handles both proxy and embed modes
 /// automatically based on the current mode detection.
 ///
 /// # Arguments
@@ -79,6 +80,12 @@ async fn proxy_request(
     req: &HttpRequest,
     route_config: &crate::core::config::SpaRouteConfig,
 ) -> ActixResult<HttpResponse> {
+    println!(
+        "→ {} {} → {}",
+        req.method(),
+        req.path(),
+        route_config.dev_proxy_url
+    );
     let client = reqwest::Client::new();
     let target_url = format!("{}{}", route_config.dev_proxy_url, req.path());
 
@@ -116,59 +123,51 @@ async fn proxy_request(
     Ok(actix_response.body(body))
 }
 
-/// Serve embedded asset in production mode
+/// Serve embedded asset from embed registry
 async fn serve_embedded_asset(
     path: &str,
     route_config: &crate::core::config::SpaRouteConfig,
 ) -> ActixResult<HttpResponse> {
-    // Normalize the path - remove leading slash and handle root
-    let file_path = if path == "/" || path.is_empty() {
-        route_config
-            .fallback_file
-            .as_deref()
-            .unwrap_or("index.html")
-    } else {
-        path.strip_prefix('/').unwrap_or(path)
-    };
+    let stripped_path = path.strip_prefix('/').unwrap_or(path);
 
-    // Build full file path
-    let full_path = route_config.embed_dir.join(file_path);
+    match crate::services::embed_registry::serve_embedded_asset(
+        &route_config.embed_dir.to_string_lossy(),
+        stripped_path,
+        route_config.fallback_file.as_deref(),
+    ) {
+        Ok(response) => {
+            let status = response.status();
+            let headers = response.headers().clone();
+            let body = response
+                .into_body()
+                .collect()
+                .await
+                .map_err(|e| {
+                    actix_web::error::ErrorInternalServerError(format!("Body error: {}", e))
+                })?
+                .to_bytes();
 
-    // Try to read the file
-    match tokio::fs::read(&full_path).await {
-        Ok(contents) => {
-            // Determine content type from file extension
-            let content_type = match full_path.extension().and_then(|ext| ext.to_str()) {
-                Some("html") => "text/html; charset=utf-8",
-                Some("css") => "text/css; charset=utf-8",
-                Some("js") => "application/javascript; charset=utf-8",
-                Some("json") => "application/json; charset=utf-8",
-                Some("png") => "image/png",
-                Some("jpg") | Some("jpeg") => "image/jpeg",
-                Some("gif") => "image/gif",
-                Some("svg") => "image/svg+xml",
-                Some("ico") => "image/x-icon",
-                Some("woff") => "font/woff",
-                Some("woff2") => "font/woff2",
-                Some("ttf") => "font/ttf",
-                _ => "application/octet-stream",
-            };
+            let mut actix_response = HttpResponse::build(
+                actix_web::http::StatusCode::from_u16(status.as_u16())
+                    .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
+            );
 
-            Ok(HttpResponse::Ok().content_type(content_type).body(contents))
-        }
-        Err(_) => {
-            // File not found, try fallback for SPA routing
-            if let Some(fallback) = &route_config.fallback_file {
-                let fallback_path = route_config.embed_dir.join(fallback);
-                match tokio::fs::read(&fallback_path).await {
-                    Ok(contents) => Ok(HttpResponse::Ok()
-                        .content_type("text/html; charset=utf-8")
-                        .body(contents)),
-                    Err(_) => Err(actix_web::error::ErrorNotFound("File not found")),
+            for (name, value) in headers.iter() {
+                if let Ok(header_name) =
+                    actix_web::http::header::HeaderName::from_bytes(name.as_str().as_bytes())
+                {
+                    if let Ok(header_value) =
+                        actix_web::http::header::HeaderValue::from_bytes(value.as_bytes())
+                    {
+                        actix_response.insert_header((header_name, header_value));
+                    }
                 }
-            } else {
-                Err(actix_web::error::ErrorNotFound("File not found"))
             }
+
+            Ok(actix_response.body(body.to_vec()))
         }
+        Err(_) => Err(actix_web::error::ErrorNotFound(
+            "Asset not found (embed mode requires embed_spa! macro)",
+        )),
     }
 }

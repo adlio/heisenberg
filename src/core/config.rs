@@ -4,7 +4,7 @@ use crate::core::mode::Mode;
 #[cfg(feature = "logging")]
 use tracing::{debug, info};
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// Main configuration builder for Heisenberg
@@ -116,20 +116,15 @@ impl SpaRouteBuilder {
 
     /// Set the development proxy URL where the frontend dev server will run.
     ///
-    /// # Arguments
-    ///
-    /// * `url` - URL of the frontend dev server (e.g., `"http://localhost:5173"`)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use heisenberg::Heisenberg;
-    ///
-    /// let config = Heisenberg::new()
-    ///     .spa("./dist")
-    ///     .dev_server("http://localhost:5173")
-    ///     .build();
-    /// ```
+    /// **Deprecated**: Configure `dev_server` in `heisenberg.toml` instead.
+    /// The dev server URL is now automatically discovered from:
+    /// 1. `heisenberg.toml` config file
+    /// 2. `vite.config.js/ts` (if present)
+    /// 3. Fallback to `http://localhost:5173`
+    #[deprecated(
+        since = "0.5.0",
+        note = "Configure dev_server in heisenberg.toml instead"
+    )]
     pub fn dev_server(mut self, url: &str) -> Self {
         if let Some(route) = self.heisenberg.routes.get_mut(self.route_index) {
             route.dev_proxy_url = url.to_string();
@@ -139,20 +134,15 @@ impl SpaRouteBuilder {
 
     /// Set the development command to start the frontend dev server.
     ///
-    /// # Arguments
-    ///
-    /// * `command` - Command and arguments to start dev server (e.g., `["npm", "run", "dev"]`)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use heisenberg::Heisenberg;
-    ///
-    /// let config = Heisenberg::new()
-    ///     .spa("./dist")
-    ///     .dev_command(["npm", "run", "dev"])
-    ///     .build();
-    /// ```
+    /// **Deprecated**: Configure `dev_command` in `heisenberg.toml` instead.
+    /// The dev command is now automatically discovered from:
+    /// 1. `heisenberg.toml` config file
+    /// 2. `package.json` scripts
+    /// 3. Fallback to `npm run dev`
+    #[deprecated(
+        since = "0.5.0",
+        note = "Configure dev_command in heisenberg.toml instead"
+    )]
     pub fn dev_command<I, S>(mut self, command: I) -> Self
     where
         I: IntoIterator<Item = S>,
@@ -191,9 +181,9 @@ impl SpaRouteBuilder {
         self
     }
 
-    /// Add another SPA route
-    pub fn spa<P: Into<PathBuf>>(self, embed_dir: P) -> SpaRouteBuilder {
-        self.heisenberg.spa(embed_dir)
+    /// Add another SPA route with pattern and embedded assets
+    pub fn route(self, pattern: &str, embedded_spa: crate::EmbeddedSpa) -> SpaRouteBuilder {
+        self.heisenberg.route(pattern, embedded_spa)
     }
 
     /// Finish building and return the Heisenberg config
@@ -216,10 +206,11 @@ impl Heisenberg {
     /// # Examples
     ///
     /// ```rust
-    /// use heisenberg::Heisenberg;
+    /// use heisenberg::{EmbeddedSpa, Heisenberg};
     ///
+    /// let spa = EmbeddedSpa::new("./dist", "");
     /// let config = Heisenberg::new()
-    ///     .spa("./dist")
+    ///     .route("/*", spa)
     ///     .build();
     /// ```
     pub fn new() -> Self {
@@ -227,61 +218,6 @@ impl Heisenberg {
             routes: Vec::new(),
             global_settings: GlobalSettings::default(),
             mode_override: None,
-        }
-    }
-
-    /// Add a SPA route with smart defaults and inference.
-    ///
-    /// This method automatically infers configuration from your project structure:
-    /// - Searches for `package.json` to determine working directory
-    /// - Extracts dev command from package.json scripts (`dev` > `start` > `serve`)
-    /// - Detects common dev server ports (5173, 3000, 8080)
-    /// - Sets up SPA fallback to `index.html`
-    ///
-    /// # Arguments
-    ///
-    /// * `embed_dir` - Directory containing built frontend assets (e.g., `./dist`, `./build`)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use heisenberg::Heisenberg;
-    ///
-    /// // Simple case - infers everything from ./web/dist
-    /// let config = Heisenberg::new()
-    ///     .spa("./web/dist")
-    ///     .build();
-    ///
-    /// // Multiple SPAs
-    /// let config = Heisenberg::new()
-    ///     .spa("./admin/dist")
-    ///         .dev_server("http://localhost:3001")
-    ///     .spa("./app/dist")
-    ///         .dev_server("http://localhost:3000")
-    ///     .build();
-    /// ```
-    pub fn spa<P: Into<PathBuf>>(mut self, embed_dir: P) -> SpaRouteBuilder {
-        let embed_dir = embed_dir.into();
-
-        // Smart inference from embed directory
-        let inferred = crate::utils::infer_from_build_dir(&embed_dir)
-            .unwrap_or_else(|_| crate::utils::InferredConfig::default_for_dir(&embed_dir));
-
-        let route = SpaRouteConfig {
-            pattern: "/*".to_string(),
-            embed_dir,
-            dev_proxy_url: inferred.dev_url,
-            dev_command: inferred.dev_command,
-            working_dir: inferred.working_dir,
-            fallback_file: Some("index.html".to_string()), // Common SPA default
-            open_browser: false,                           // Conservative default
-        };
-        self.routes.push(route);
-        let route_index = self.routes.len() - 1;
-
-        SpaRouteBuilder {
-            heisenberg: self,
-            route_index,
         }
     }
 
@@ -306,16 +242,15 @@ impl Heisenberg {
     pub fn route(mut self, pattern: &str, embedded_spa: crate::EmbeddedSpa) -> SpaRouteBuilder {
         let embed_dir = embedded_spa.build_path();
 
-        // Smart inference from SPA directory
-        let inferred = crate::utils::infer_from_build_dir(&embedded_spa.spa_dir)
-            .unwrap_or_else(|_| crate::utils::InferredConfig::default_for_dir(&embed_dir));
+        // Try to load config from heisenberg.toml, then infer from directory
+        let (dev_proxy_url, dev_command, working_dir) = Self::discover_spa_config(&embed_dir);
 
         let route = SpaRouteConfig {
             pattern: pattern.to_string(),
-            embed_dir,
-            dev_proxy_url: inferred.dev_url,
-            dev_command: inferred.dev_command,
-            working_dir: inferred.working_dir,
+            embed_dir: embed_dir.clone(),
+            dev_proxy_url,
+            dev_command,
+            working_dir,
             fallback_file: Some("index.html".to_string()),
             open_browser: false,
         };
@@ -326,6 +261,41 @@ impl Heisenberg {
             heisenberg: self,
             route_index,
         }
+    }
+
+    fn discover_spa_config(embed_dir: &Path) -> (String, Vec<String>, PathBuf) {
+        // 1. Try to load from heisenberg.toml
+        if let Ok(config) = crate::config::HeisenbergConfig::from_file("heisenberg.toml") {
+            for spa_config in config.spas() {
+                if spa_config.output_dir == embed_dir {
+                    let dev_url = spa_config
+                        .dev_server
+                        .clone()
+                        .unwrap_or_else(|| "http://localhost:5173".to_string());
+                    let dev_cmd = spa_config
+                        .dev_command
+                        .clone()
+                        .map(|cmd| cmd.split_whitespace().map(String::from).collect())
+                        .unwrap_or_else(|| {
+                            vec!["npm".to_string(), "run".to_string(), "dev".to_string()]
+                        });
+                    return (dev_url, dev_cmd, spa_config.working_dir.clone());
+                }
+            }
+        }
+
+        // 2. Try to infer from directory structure
+        if let Ok(inferred) = crate::utils::infer_from_build_dir(embed_dir) {
+            return (inferred.dev_url, inferred.dev_command, inferred.working_dir);
+        }
+
+        // 3. Fallback defaults
+        let working_dir = embed_dir.parent().unwrap_or(embed_dir).to_path_buf();
+        (
+            "http://localhost:5173".to_string(),
+            vec!["npm".to_string(), "run".to_string(), "dev".to_string()],
+            working_dir,
+        )
     }
 
     /// Get the routes

@@ -87,6 +87,17 @@ impl ProcessManager {
         dev_server_url: &str,
         open_browser_flag: bool,
     ) -> Result<(), HeisenbergError> {
+        // Check if autostart is disabled (e.g., when cargo-heisenberg is managing it)
+        if std::env::var("HEISENBERG_AUTOSTART_ORIGIN").as_deref() == Ok("false") {
+            #[cfg(feature = "logging")]
+            info!("Autostart disabled via HEISENBERG_AUTOSTART_ORIGIN=false");
+            println!(
+                "🔗 Connecting to externally managed dev server: {}",
+                dev_server_url
+            );
+            return Ok(());
+        }
+
         #[cfg(feature = "logging")]
         info!(
             command = ?command,

@@ -1,0 +1,11 @@
+[[spa]]
+name = "user"
+working_dir = "./user-webapp"
+output_dir = "./user-webapp/custom-dist"
+dev_server = "http://localhost:5173"
+
+[[spa]]
+name = "admin"
+working_dir = "./admin-webapp"
+output_dir = "./admin-webapp/custom-build"
+dev_server = "http://localhost:5174"

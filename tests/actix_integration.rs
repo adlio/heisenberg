@@ -3,34 +3,31 @@
 #![cfg(feature = "actix")]
 
 use actix_web::test;
-use heisenberg::{adapters::actix::serve_spa, Heisenberg};
+use heisenberg::{adapters::actix::serve_spa, EmbeddedSpa, Heisenberg};
 
 #[actix_web::test]
 async fn test_actix_serve_spa_basic() {
-    // Force production mode for testing
-    std::env::set_var("HEISENBERG_MODE", "production");
+    std::env::set_var("HEISENBERG_MODE", "embed");
 
-    let config = Heisenberg::new().spa("./test-dist").build();
+    let spa = EmbeddedSpa::new("./tests/fixtures/minimal-spa/dist", "");
+    let config = Heisenberg::new().route("/*", spa).build();
     let req = test::TestRequest::get().uri("/").to_http_request();
 
-    // Test that the function can be called without panicking
     let result = serve_spa(&req, &config).await;
     assert!(result.is_ok());
 }
 
 #[actix_web::test]
 async fn test_actix_path_matching() {
-    // Force production mode for testing
-    std::env::set_var("HEISENBERG_MODE", "production");
+    std::env::set_var("HEISENBERG_MODE", "embed");
 
-    let config = Heisenberg::new().spa("./test-dist").build();
+    let spa = EmbeddedSpa::new("./tests/fixtures/minimal-spa/dist", "");
+    let config = Heisenberg::new().route("/*", spa).build();
 
-    // Test basic route
     let req = test::TestRequest::get().uri("/").to_http_request();
     let result = serve_spa(&req, &config).await;
     assert!(result.is_ok());
 
-    // Test nested path
     let req = test::TestRequest::get().uri("/app/home").to_http_request();
     let result = serve_spa(&req, &config).await;
     assert!(result.is_ok());

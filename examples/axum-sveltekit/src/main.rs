@@ -5,6 +5,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use heisenberg::{Heisenberg, HeisenbergLayer};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -26,8 +27,6 @@ struct CreateTodo {
 
 async fn get_todos(store: axum::extract::State<TodoStore>) -> Json<Vec<Todo>> {
     let todos = store.lock().await;
-    let count = todos.len();
-    println!("GET /api/todos 200 - {} items", count);
     Json(todos.values().cloned().collect())
 }
 
@@ -43,9 +42,9 @@ async fn create_todo(
         completed: false,
     };
     todos.insert(id, todo.clone());
-    println!("POST /api/todos 200 - created #{}", id);
     Ok(Json(todo))
 }
+
 async fn toggle_todo(
     Path(id): Path<u32>,
     axum::extract::State(store): axum::extract::State<TodoStore>,
@@ -53,44 +52,34 @@ async fn toggle_todo(
     let mut todos = store.lock().await;
     if let Some(todo) = todos.get_mut(&id) {
         todo.completed = !todo.completed;
-        println!("POST /api/todos/{}/toggle 200", id);
         Ok(Json(todo.clone()))
     } else {
-        println!("POST /api/todos/{}/toggle 404", id);
         Err(StatusCode::NOT_FOUND)
     }
 }
 
 #[tokio::main]
 async fn main() {
+    println!("🚀 Axum-SvelteKit example on http://127.0.0.1:3001");
+    println!("📦 API: http://127.0.0.1:3001/api/todos");
+
     let store: TodoStore = Arc::new(Mutex::new(HashMap::new()));
 
-    let api_routes = Router::new()
-        .route("/todos", get(get_todos).post(create_todo))
-        .route("/todos/:id/toggle", post(toggle_todo))
-        .with_state(store);
-
-    // Embed assets and configure Heisenberg
-    let app = heisenberg::embed_spa!("./web/build");
-    let config = heisenberg::Heisenberg::new().route("/*", app).build();
+    let spa = heisenberg::embed_spa!("./web");
+    let config = Heisenberg::new().route("/*", spa).build();
 
     let app = Router::new()
-        .nest("/api", api_routes)
-        .layer(heisenberg::HeisenbergLayer::new(config));
+        .route("/api/todos", get(get_todos).post(create_todo))
+        .route("/api/todos/:id/toggle", post(toggle_todo))
+        .with_state(store)
+        .layer(HeisenbergLayer::new(config));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3001")
         .await
-        .expect("Failed to bind to 127.0.0.1:3001 - port may already be in use");
-
-    println!("🚀 Server running on http://127.0.0.1:3001\n");
+        .unwrap();
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(heisenberg::shutdown_signal())
         .await
         .unwrap();
-}
-
-async fn shutdown_signal() {
-    let _ = tokio::signal::ctrl_c().await;
-    println!("\n🛑 Shutting down gracefully...");
 }

@@ -1,94 +1,26 @@
-<svelte:head>
-	<title>About - Heisenberg + SvelteKit</title>
-</svelte:head>
+<div>
+	<h1>About</h1>
 
-<main>
-	<h1>About This Example</h1>
-	
-	<p><a href="/">← Back to Todo App</a></p>
+	<h2>What is Heisenberg?</h2>
+	<p>
+		Heisenberg is a Rust library that integrates frontend development servers with Rust web
+		frameworks. It proxies frontend dev servers during development and serves static assets in
+		production.
+	</p>
 
-	<section>
-		<h2>🎯 What This Demonstrates</h2>
-		<ul>
-			<li><strong>Dual-mode serving</strong>: Development proxy vs production embedded assets</li>
-			<li><strong>SvelteKit integration</strong>: Client-side routing with SPA fallback</li>
-			<li><strong>API integration</strong>: Rust backend with JSON API endpoints</li>
-			<li><strong>Modern SvelteKit</strong>: Using Svelte 5 runes and latest features</li>
-		</ul>
-	</section>
+	<h2>Technology Stack</h2>
+	<ul>
+		<li><strong>Backend</strong>: Axum (Rust)</li>
+		<li><strong>Frontend</strong>: SvelteKit + Vite</li>
+	</ul>
 
-	<section>
-		<h2>🔧 How It Works</h2>
-		<p>In <strong>development mode</strong>:</p>
-		<ul>
-			<li>Heisenberg proxies frontend requests to Vite dev server (HMR enabled)</li>
-			<li>API requests go directly to the Rust backend</li>
-			<li>Fast iteration with hot reload</li>
-		</ul>
-
-		<p>In <strong>production mode</strong>:</p>
-		<ul>
-			<li>Frontend assets are embedded in the Rust binary</li>
-			<li>Single binary deployment with no external dependencies</li>
-			<li>SPA fallback handles client-side routing</li>
-		</ul>
-	</section>
-
-	<section>
-		<h2>🚀 Try It Yourself</h2>
-		<pre><code># Development mode (proxy + HMR)
-cargo run
-
-# Production mode (embedded assets)
-HEISENBERG_MODE=embed cargo run
-
-# Build for production
-cargo build --release</code></pre>
-	</section>
-</main><style>
-	main {
-		max-width: 800px;
-		margin: 2rem auto;
-		padding: 1rem;
-		font-family: system-ui, sans-serif;
-		line-height: 1.6;
-	}
-
-	section {
-		margin: 2rem 0;
-	}
-
-	h2 {
-		color: #333;
-		border-bottom: 2px solid #007acc;
-		padding-bottom: 0.5rem;
-	}
-
-	ul {
-		padding-left: 1.5rem;
-	}
-
-	li {
-		margin: 0.5rem 0;
-	}
-
-	pre {
-		background: #f5f5f5;
-		padding: 1rem;
-		border-radius: 4px;
-		overflow-x: auto;
-	}
-
-	code {
-		font-family: 'Monaco', 'Menlo', monospace;
-	}
-
-	a {
-		color: #007acc;
-		text-decoration: none;
-	}
-
-	a:hover {
-		text-decoration: underline;
-	}
-</style>
+	<h2>How It Works</h2>
+	<ol>
+		<li>
+			In development, Heisenberg proxies requests to the Vite dev server with Hot Module Reload
+			(HMR) enabled
+		</li>
+		<li>In production, Heisenberg serves the built static files</li>
+		<li>API requests are handled directly by Axum backend</li>
+	</ol>
+</div>

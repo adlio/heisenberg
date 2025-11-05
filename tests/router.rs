@@ -135,7 +135,7 @@ fn test_route_handler_development_mode() {
 }
 
 #[test]
-fn test_route_handler_production_mode() {
+fn test_route_handler_embed_mode() {
     let routes = vec![create_test_route("/admin/*", "./admin/dist")];
 
     let mut router = Router::new(routes, Mode::Embed).unwrap();
@@ -146,7 +146,7 @@ fn test_route_handler_production_mode() {
             assert_eq!(config.pattern, "/admin/*");
             assert_eq!(config.embed_dir.to_str().unwrap(), "./admin/dist");
         }
-        RouteHandler::Proxy(_) => panic!("Expected static files handler in production mode"),
+        RouteHandler::Proxy(_) => panic!("Expected static files handler in embed mode"),
     }
 }
 

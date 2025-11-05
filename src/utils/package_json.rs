@@ -16,24 +16,39 @@ pub struct PackageJson {
     pub version: Option<String>,
 }
 
-/// Infer development configuration from a build directory path
-pub fn infer_from_build_dir(build_dir: &Path) -> Result<InferredConfig, HeisenbergError> {
-    let working_dir = infer_working_dir(build_dir)?;
-    let package_json_path = find_package_json(&working_dir)?;
+/// Infer development configuration from a working directory (app directory)
+pub fn infer_from_working_dir(working_dir: &Path) -> Result<InferredConfig, HeisenbergError> {
+    let package_json_path = find_package_json(working_dir)?;
     let package_json = parse_package_json(&package_json_path)?;
     let dev_command = infer_dev_command(&package_json);
 
-    // Try vite.config.js first, then fall back to package.json inference
     let dev_port =
-        read_vite_config_port(&working_dir).unwrap_or_else(|| infer_dev_port(&package_json));
+        read_vite_config_port(working_dir).unwrap_or_else(|| infer_dev_port(&package_json));
 
     Ok(InferredConfig {
-        working_dir,
+        working_dir: working_dir.to_path_buf(),
         package_json_path,
         dev_command,
         dev_port,
         dev_url: format!("http://localhost:{}", dev_port),
     })
+}
+
+/// Infer development configuration from a build directory path
+pub fn infer_from_build_dir(build_dir: &Path) -> Result<InferredConfig, HeisenbergError> {
+    let working_dir = infer_working_dir(build_dir)?;
+    infer_from_working_dir(&working_dir)
+}
+
+/// Infer output directory from working directory
+pub fn infer_output_dir(working_dir: &Path) -> PathBuf {
+    for candidate in &["build", "dist", ".next", ".svelte-kit/output"] {
+        let path = working_dir.join(candidate);
+        if path.exists() {
+            return path;
+        }
+    }
+    working_dir.join("build")
 }
 
 /// Inferred configuration from package.json

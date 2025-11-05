@@ -1,0 +1,11 @@
+[[spa]]
+name = "app"
+working_dir = "./app"
+output_dir = "./app/dist"
+dev_server = "http://localhost:3000"
+
+[[spa]]
+name = "admin"
+working_dir = "./admin"
+output_dir = "./admin/dist"
+dev_server = "http://localhost:3001"

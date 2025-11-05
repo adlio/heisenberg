@@ -5,131 +5,98 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-11-05
+
+### Added
+
+- **cargo-heisenberg CLI**: New cargo plugin for build orchestration
+  - `cargo heisenberg init` - Generate heisenberg.toml with inferred defaults
+  - `cargo heisenberg build` - Build frontend assets then run cargo build
+  - `cargo heisenberg run` - Start frontend + backend with split-pane TUI
+  - `--no-tui` flag for plain output mode
+  - Auto-detection of frontends in `./web` or `./frontend` directories
+  - Automatic `npm install` when node_modules is missing or stale
+
+- **heisenberg.toml configuration file**: Optional config for multi-SPA setups
+  - Single SPA syntax: `[spa]`
+  - Multiple SPA syntax: `[[spa]]`
+  - Fields: name, working_dir, output_dir, dev_command, build_command, dev_server
+
+- **heisenberg-macros crate**: Separated `embed_spa!` macro into its own crate
+  - Re-exported from main heisenberg crate for backward compatibility
+
+- **Rocket adapter improvements**: Full query parameter support
+  - `serve_spa()` now accepts full URI strings including query parameters
+  - Proper MIME type detection and Content-Type headers
+
+- **New example**: rocket-multi-spa with Vue frontends
+
+- **Graceful shutdown helper**: `heisenberg::shutdown_signal()` for clean process termination
+
+### Changed
+
+- Examples now include actual frontend source code instead of pre-built dist folders
+- Updated all examples to use `cargo heisenberg run` for development
+- Rocket adapter `serve_spa()` signature changed from `&Path` to `&str` for URI handling
+
+### Removed
+
+- `axum-simple` example (superseded by axum-sveltekit)
+- `logging-example` (logging is now standard)
+- `websocket-demo` (WebSocket support documented in other examples)
+
 ## [0.3.0] - 2025-11-03
 
 ### Added
-- **Compile-Time Asset Embedding**: New `embed_spa!()` macro for true binary embedding
-  - Assets embedded at compile time using rust-embed
-  - Global registry pattern for multiple SPAs
-  - Clean single-specification API: `embed_spa!("./dist")`
-  - Support for multiple SPAs with unique identifiers
-- **New Core Modules**:
-  - `src/services/embed_registry.rs`: Global asset registry
-  - `src/macros.rs`: `embed_spa!()` macro implementation
-  - `src/core/embedded_spa.rs`: EmbeddedSpa handle type
+
+- **Compile-time asset embedding**: `embed_spa!()` macro embeds assets into the binary at compile time using rust-embed
+- Global registry pattern for multiple SPAs
+- Support for multiple SPAs with unique identifiers
 
 ### Changed
-- **Breaking**: Assets now truly embedded in binary (previously only served from disk)
-- **Breaking**: Requires user dependencies: `rust-embed = "8.0"`, `ctor = "0.2"`, `paste = "1.0"`
-- Updated all documentation to reflect embedding implementation
-- Simplified API from duplicate path specifications to single specification
 
-### Fixed
-- Documentation incorrectly implied assets were embedded (now actually implemented)
+- **Breaking**: Assets now embedded in binary (previously served from disk)
+- **Breaking**: Requires `rust-embed = "8.0"` in user's Cargo.toml
 
 ## [0.2.0] - 2025-11-02
 
 ### Added
-- **WebSocket Proxying**: Full support for WebSocket connections including HMR (Hot Module Replacement)
-  - Transparent proxying of WebSocket upgrade requests
-  - Support for Vite, Next.js, and Create React App HMR
-  - Automated WebSocket proxy testing
-- **Port Auto-Detection**: Automatically detect dev server ports from vite.config.js
-  - Parses literal port numbers from config files
-  - Falls back to framework defaults (Vite: 5173, Next.js/CRA: 3000)
-- **Blocking Dev Server Startup**: Dev servers now start synchronously before Rust server binds
-  - Prevents race conditions and port conflicts
-  - Fail-fast behavior with clear error messages
-  - Works consistently across all frameworks (Axum, Actix, Rocket)
+
+- **WebSocket proxying**: Transparent proxying of WebSocket connections including HMR
+- **Port auto-detection**: Reads port from vite.config.js with framework-specific fallbacks
+- **Blocking dev server startup**: Dev servers start synchronously before Rust server binds
 
 ### Changed
-- **Improved Error Messages**: All examples now show specific port numbers in bind errors
-- **Updated Terminology**: Consistent use of "proxy/embed" instead of "development/production"
-- **Enhanced Documentation**: Added WebSocket testing guide and troubleshooting tips
+
+- Consistent use of "proxy/embed" terminology instead of "development/production"
 
 ### Fixed
-- Dev server startup race conditions that could cause "connection refused" errors
-- Port conflict detection and error reporting
-- Test isolation issues with parallel test execution
+
+- Dev server startup race conditions
+- Port conflict detection
 
 ## [0.1.1] - 2025-08-25
 
 ### Changed
-- Updated code improvements and bug fixes
+
+- Bug fixes and code improvements
 
 ## [0.1.0] - 2025-08-25
 
 ### Added
-- **Core Library**: Framework-agnostic dual-mode web serving
-- **Tower Integration**: Native Tower layer and service implementation
-- **Framework Adapters**: Helper functions for Actix-web and Rocket
-- **Smart Configuration**: Fluent builder API with package.json inference
-- **Mode Detection**: Automatic proxy/embed mode switching based on build profile
-- **Process Management**: Automatic frontend dev server lifecycle management
-- **Asset Embedding**: Embed-mode static asset serving with rust-embed
-- **SPA Support**: Client-side routing with fallback to index.html
-- **Health Checking**: Out-of-band monitoring of frontend dev servers
-- **Browser Opening**: Automatic browser launch in proxy mode
-- **Multi-SPA Support**: Multiple frontend applications with different routes
-- **Structured Logging**: Optional tracing integration for diagnostics
+
+- Core library with dual-mode web serving (proxy and embed)
+- Tower layer and service implementation
+- Framework adapters for Actix-web and Rocket
+- Fluent builder API with package.json inference
+- Automatic mode detection based on build profile
+- Frontend dev server lifecycle management
+- SPA routing with fallback to index.html
+- Multi-SPA support
 
 ### Framework Support
-- **Axum**: Native Tower integration (zero configuration)
-- **Warp**: Native Tower integration (zero configuration)  
-- **Actix-web**: Helper function adapter
-- **Rocket**: Helper function adapter
-- **Any Tower-based framework**: Works automatically
 
-### Features
-- **Zero Configuration**: Works out-of-the-box with sensible defaults
-- **Smart Inference**: Auto-detects frontend configuration from package.json
-- **Cross-Platform**: Windows, macOS, and Linux support
-- **Performance Optimized**: Minimal overhead in both dev and prod modes
-- **Security Hardened**: Path traversal prevention and input validation
-- **Comprehensive Testing**: 47 tests covering all major functionality
-
-### Examples
-- **axum-simple**: Basic Axum + HTML setup
-- **axum-sveltekit**: Full-featured SvelteKit integration
-- **axum-multi-spa**: Multiple frontend applications
-- **actix-react**: Actix-web + React integration
-- **rocket-vue**: Rocket + Vue integration
-- **logging-example**: Structured logging demonstration
-
-### Documentation
-- **User Guide**: Comprehensive setup and configuration guide
-- **API Documentation**: Complete rustdoc coverage
-- **Integration Examples**: Working examples for all supported frameworks
-- **Performance Benchmarks**: Baseline performance measurements
-
-[0.1.0]: https://github.com/username/heisenberg/releases/tag/v0.1.0
-## [Unreleased] - WebSocket Proxying Feature
-
-### Added
-- **WebSocket proxying** for transparent HMR support (Vite, Next.js, CRA)
-  - Automatic detection of `Upgrade: websocket` header
-  - Bidirectional message forwarding between client and backend
-  - Proper WebSocket handshake with `Sec-WebSocket-Accept`
-  - Implementation in `src/services/proxy.rs` and `src/tower/service.rs`
-
-- **Automated testing** for WebSocket functionality
-  - New test: `tests/websocket_proxy.rs`
-  - Verifies end-to-end WebSocket proxying
-  - Tests bidirectional communication
-  - Run with: `cargo test --test websocket_proxy`
-
-- **Enhanced axum-sveltekit example** as showcase
-  - One-command experience: `cargo run`
-  - Automatic Vite dev server startup
-  - WebSocket HMR working out of the box
-  - Comprehensive documentation in example directory
-
-### Changed
-- Updated README.md to highlight WebSocket support
-- Simplified example configuration (removed manual working_dir)
-- Added `axum` to dev-dependencies for testing
-
-### Documentation
-- All WebSocket documentation consolidated in example READMEs
-- Root README.md updated with testing instructions
-- Removed temporary documentation files (WEBSOCKET_*.md, TESTING*.md)
+- Axum (native Tower integration)
+- Warp (native Tower integration)
+- Actix-web (adapter)
+- Rocket (adapter)

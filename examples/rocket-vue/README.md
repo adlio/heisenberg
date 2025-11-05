@@ -1,55 +1,34 @@
 # Rocket-Vue Example
 
-Demonstrates Heisenberg's Rocket adapter with a Vue-style frontend.
+Demonstrates Heisenberg with Rocket and Vue 3.
 
-## Running
+## Prerequisites
 
-### Production Mode (Static Files)
+Install the `cargo-heisenberg` CLI tool:
+
 ```bash
-cd examples/rocket-vue
+# From crates.io (for your own projects)
+cargo install cargo-heisenberg
+
+# Or from local source (for running this example)
+cargo install --path ../../cargo-heisenberg
+```
+
+## Development (Proxy Mode)
+
+```bash
+cargo heisenberg run
+```
+
+**Server:** http://127.0.0.1:8000  
+**API:** `/api/hello`  
+**Frontend:** Vite dev server on port 3000 (proxied at `/*` with HMR)
+
+## Production (Embed Mode)
+
+```bash
+cargo heisenberg build
 cargo run
 ```
-Then visit http://127.0.0.1:8000
 
-### Development Mode (Live Vue + HMR)
-```bash
-# Terminal 1: Start Rocket backend
-cd examples/rocket-vue
-NODE_ENV=development cargo run
-
-# Terminal 2: Start Vue dev server
-npm install
-npm run dev
-```
-Then visit http://localhost:3000 (Vue dev server with API proxy)
-
-## What it demonstrates
-
-- Heisenberg Rocket adapter integration
-- API routes served by Rust backend (`/api/hello`)
-- Static frontend served by Heisenberg adapter
-- Dual-mode operation (development/production)
-
-## API Endpoints
-
-- `GET /api/hello` - Returns JSON response from Rocket backend
-
-## Testing HMR (Hot Module Reload)
-
-In development mode, this example would proxy to a Vue dev server.
-For manual testing:
-
-1. Start a Vue dev server on port 3000 (if available)
-2. Configure the example to proxy to `http://localhost:3000`
-3. Verify that changes to Vue components are reflected immediately
-
-## Current Mode
-
-This example demonstrates the adapter functionality with static files.
-The dual-mode behavior (dev proxy vs prod embedded) is handled by the adapter.
-
-## Rocket Specifics
-
-- Uses Rocket's default port 8000
-- Leverages Rocket's JSON macros and routing
-- Demonstrates different adapter pattern from Axum/Tower approach
+In embed mode, built frontend assets are served directly from the binary.

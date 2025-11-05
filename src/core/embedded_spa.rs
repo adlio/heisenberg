@@ -31,4 +31,16 @@ impl EmbeddedSpa {
             self.spa_dir.join(&self.build_subdir)
         }
     }
+
+    /// Get the SPA directory path (for testing)
+    #[doc(hidden)]
+    pub fn spa_dir(&self) -> &PathBuf {
+        &self.spa_dir
+    }
+
+    /// Get the build subdirectory (for testing)
+    #[doc(hidden)]
+    pub fn build_subdir(&self) -> &str {
+        &self.build_subdir
+    }
 }

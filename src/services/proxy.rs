@@ -83,10 +83,10 @@ impl ProxyService {
         B::Error: std::error::Error + Send + Sync,
     {
         use hyper_util::rt::TokioIo;
-        use tokio_tungstenite::{tungstenite::protocol::Role, WebSocketStream};
+        use tokio_tungstenite::tungstenite::protocol::Role;
 
-        // Extract target URL from request
-        let path = req.uri().path();
+        // Extract target URL from request (needed for backend connection later)
+        let path = req.uri().path().to_string();
         let query = req
             .uri()
             .query()
@@ -98,13 +98,6 @@ impl ProxyService {
             .replace("https://", "wss://");
         let target = format!("{}{}{}", ws_url, path, query);
 
-        // Connect to backend WebSocket
-        let (backend_ws, _) = tokio_tungstenite::connect_async(&target)
-            .await
-            .map_err(|e| {
-                HeisenbergError::proxy(format!("WebSocket connection failed: {}", e), "")
-            })?;
-
         // Get the WebSocket key for the response
         let key = req
             .headers()
@@ -114,21 +107,34 @@ impl ProxyService {
             })?
             .clone();
 
-        // Spawn upgrade task
+        // Spawn upgrade task - connect to backend AFTER client upgrade succeeds
+        // This prevents orphaned backend connections when clients disconnect mid-upgrade
         tokio::spawn(async move {
             match hyper::upgrade::on(&mut req).await {
                 Ok(upgraded) => {
-                    let io = TokioIo::new(upgraded);
-                    let client_ws = WebSocketStream::from_raw_socket(io, Role::Server, None).await;
+                    // Client upgrade succeeded - NOW connect to backend
+                    match tokio_tungstenite::connect_async(&target).await {
+                        Ok((backend_ws, _)) => {
+                            let io = TokioIo::new(upgraded);
+                            let client_ws =
+                                WebSocketStream::from_raw_socket(io, Role::Server, None).await;
 
-                    if let Err(_e) = Self::forward_websocket(client_ws, backend_ws).await {
-                        #[cfg(feature = "logging")]
-                        tracing::debug!("WebSocket forwarding error: {}", _e);
+                            if let Err(_e) = Self::forward_websocket(client_ws, backend_ws).await {
+                                #[cfg(feature = "logging")]
+                                tracing::debug!("WebSocket forwarding error: {}", _e);
+                            }
+                        }
+                        Err(_e) => {
+                            #[cfg(feature = "logging")]
+                            tracing::debug!("Backend WebSocket connection failed: {}", _e);
+                            // Client is already upgraded but backend failed - connection will close
+                        }
                     }
                 }
                 Err(_e) => {
                     #[cfg(feature = "logging")]
                     tracing::debug!("WebSocket upgrade failed: {}", _e);
+                    // Client disconnected before upgrade completed - no backend connection made
                 }
             }
         });

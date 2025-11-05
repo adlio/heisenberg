@@ -1,4 +1,4 @@
-.PHONY: build test coverage lint format check-all clean help
+.PHONY: build test coverage lint format check-all clean help npm-audit-fix
 
 # Default target
 help:
@@ -11,6 +11,7 @@ help:
 	@echo "  check-all - Run all quality checks"
 	@echo "  bench     - Run performance benchmarks"
 	@echo "  clean     - Clean build artifacts"
+	@echo "  npm-audit-fix - Run npm audit fix in all example packages"
 
 # Build the project
 build:
@@ -49,3 +50,11 @@ bench:
 # Clean build artifacts
 clean:
 	cargo clean
+
+# Run npm audit fix in all example packages
+npm-audit-fix:
+	@for pkg in $$(find examples -name "package.json" -not -path "*/node_modules/*"); do \
+		dir=$$(dirname $$pkg); \
+		echo "=== Auditing $$dir ==="; \
+		(cd $$dir && npm audit fix) || true; \
+	done

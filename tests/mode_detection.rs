@@ -8,10 +8,10 @@ use std::sync::Mutex;
 static ENV_MUTEX: Mutex<()> = Mutex::new(());
 
 #[test]
-fn test_mode_detection_env_override_production() {
+fn test_mode_detection_env_override_embed() {
     let _guard = ENV_MUTEX.lock().unwrap();
 
-    env::set_var("HEISENBERG_MODE", "production");
+    env::set_var("HEISENBERG_MODE", "embed");
     let mode = detect_mode();
     env::remove_var("HEISENBERG_MODE");
 
@@ -19,10 +19,10 @@ fn test_mode_detection_env_override_production() {
 }
 
 #[test]
-fn test_mode_detection_env_override_development() {
+fn test_mode_detection_env_override_proxy() {
     let _guard = ENV_MUTEX.lock().unwrap();
 
-    env::set_var("HEISENBERG_MODE", "development");
+    env::set_var("HEISENBERG_MODE", "proxy");
     let mode = detect_mode();
     env::remove_var("HEISENBERG_MODE");
 
@@ -30,20 +30,22 @@ fn test_mode_detection_env_override_development() {
 }
 
 #[test]
-fn test_mode_detection_aliases() {
+fn test_mode_detection_no_aliases() {
     let _guard = ENV_MUTEX.lock().unwrap();
 
-    // Test production aliases
-    for alias in ["prod", "embed"] {
-        env::set_var("HEISENBERG_MODE", alias);
-        assert_eq!(detect_mode(), Mode::Embed, "Failed for alias: {}", alias);
-    }
+    // Only "embed" and "proxy" are valid
+    env::set_var("HEISENBERG_MODE", "embed");
+    assert_eq!(detect_mode(), Mode::Embed);
 
-    // Test development aliases
-    for alias in ["dev", "proxy"] {
-        env::set_var("HEISENBERG_MODE", alias);
-        assert_eq!(detect_mode(), Mode::Proxy, "Failed for alias: {}", alias);
-    }
+    env::set_var("HEISENBERG_MODE", "proxy");
+    assert_eq!(detect_mode(), Mode::Proxy);
+
+    // Invalid values fall back to default (Embed)
+    env::set_var("HEISENBERG_MODE", "invalid");
+    assert_eq!(detect_mode(), Mode::Embed);
+
+    env::set_var("HEISENBERG_MODE", "dev");
+    assert_eq!(detect_mode(), Mode::Embed);
 
     env::remove_var("HEISENBERG_MODE");
 }
@@ -55,10 +57,6 @@ fn test_mode_detection_default_fallback() {
     env::remove_var("HEISENBERG_MODE");
     let mode = detect_mode();
 
-    // Should match build configuration
-    #[cfg(debug_assertions)]
-    assert_eq!(mode, Mode::Proxy);
-
-    #[cfg(not(debug_assertions))]
+    // Default is always Embed mode
     assert_eq!(mode, Mode::Embed);
 }

@@ -1,30 +1,49 @@
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Result};
-use heisenberg::{adapters::actix::serve_spa, Heisenberg};
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use chrono::Utc;
+use heisenberg::Heisenberg;
+use serde::Serialize;
 
-async fn spa_handler(req: HttpRequest) -> Result<HttpResponse> {
-    let config = Heisenberg::new().spa("./dist").build();
-    serve_spa(&req, &config).await
+#[derive(Serialize)]
+struct ApiResponse {
+    message: String,
+    framework: String,
+    frontend: String,
+    timestamp: String,
 }
 
-async fn api_handler() -> Result<HttpResponse> {
-    Ok(HttpResponse::Ok().json(serde_json::json!({
-        "message": "Hello from Actix-web API!",
-        "framework": "actix-web",
-        "frontend": "react"
-    })))
+async fn api_hello() -> impl Responder {
+    let timestamp = Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+
+    HttpResponse::Ok().json(ApiResponse {
+        message: "Hello from Actix!".to_string(),
+        framework: "actix-web".to_string(),
+        frontend: "react".to_string(),
+        timestamp,
+    })
+}
+
+async fn spa_handler(
+    req: HttpRequest,
+    config: web::Data<Heisenberg>,
+) -> actix_web::Result<HttpResponse> {
+    heisenberg::adapters::actix::serve_spa(&req, &config).await
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("Starting Actix-React example on http://127.0.0.1:8080");
+    println!("🚀 Actix-React example on http://127.0.0.1:8080");
+    println!("📦 API: http://127.0.0.1:8080/api/hello");
 
-    HttpServer::new(|| {
+    let spa = heisenberg::embed_spa!("./frontend");
+    let config = web::Data::new(Heisenberg::new().route("/*", spa).build());
+
+    HttpServer::new(move || {
         App::new()
-            .route("/api/hello", web::get().to(api_handler))
-            .route("/", web::get().to(spa_handler))
-            .route("/{path:.*}", web::get().to(spa_handler))
+            .app_data(config.clone())
+            .route("/api/hello", web::get().to(api_hello))
+            .default_service(web::to(spa_handler))
     })
-    .bind("127.0.0.1:8080")?
+    .bind(("127.0.0.1", 8080))?
     .run()
     .await
 }

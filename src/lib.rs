@@ -9,13 +9,19 @@
 //!
 //! ```rust,ignore
 //! use axum::{routing::get, Router};
-//! use heisenberg::Heisenberg;
+//! use heisenberg::{Heisenberg, HeisenbergLayer};
 //!
 //! #[tokio::main]
 //! async fn main() {
+//!     let spa = heisenberg::embed_spa!("./web/build");
+//!     let config = Heisenberg::new()
+//!         .route("/*", spa)
+//!         .dev_server("http://localhost:5173")
+//!         .build();
+//!
 //!     let app = Router::new()
 //!         .route("/api/hello", get(|| async { "Hello API!" }))
-//!         .layer(Heisenberg::new().spa("./dist"));
+//!         .layer(HeisenbergLayer::new(config));
 //!
 //!     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
 //!     axum::serve(listener, app).await.unwrap();
@@ -25,7 +31,7 @@
 //! ## Features
 //!
 //! - **Framework Agnostic**: Works with any Tower-based framework (Axum, Warp, Hyper)
-//! - **Dual Mode**: Automatic dev/prod mode switching
+//! - **Dual Mode**: Automatic proxy/embed mode switching
 //! - **Smart Inference**: Automatically detects frontend configuration from package.json
 //! - **Process Management**: Handles frontend dev server lifecycle
 //! - **SPA Support**: Client-side routing with fallback to index.html
@@ -39,13 +45,16 @@
 
 #![warn(missing_docs)]
 
+pub mod config;
 pub mod core;
 pub mod error;
-pub mod macros;
 pub mod services;
 pub mod utils;
 
-#[cfg(feature = "tower")]
+// Re-export the embed_spa macro
+pub use heisenberg_macros::embed_spa;
+
+#[cfg(feature = "axum")]
 pub mod tower;
 
 // Framework adapters
@@ -56,11 +65,22 @@ pub mod adapters;
 pub use crate::core::config::{Heisenberg, SpaRouteBuilder};
 pub use crate::core::embedded_spa::EmbeddedSpa;
 pub use crate::error::HeisenbergError;
+pub use crate::utils::shutdown_signal;
 
-#[cfg(feature = "tower")]
+#[cfg(feature = "axum")]
 pub use crate::tower::{HeisenbergLayer, HeisenbergService};
 
-// Re-export dependencies needed by macros
+// Re-export dependencies needed by the embed_spa! macro
+//
+// These are re-exported so the macro-generated code can reference them as
+// ::heisenberg::ctor, ::heisenberg::paste, etc. This ensures version compatibility.
+//
+// Note: Users still need rust-embed in their Cargo.toml because #[derive(RustEmbed)]
+// requires the crate to be in the user's dependency graph (Rust derive macro limitation).
+// However, the re-export ensures the macro uses the correct version even if the user
+// accidentally specifies a different version.
+//
+// ctor and paste work through re-exports (attribute/proc macros), so users don't need them.
 #[doc(hidden)]
 pub use ctor;
 #[doc(hidden)]
@@ -74,7 +94,8 @@ mod tests {
 
     #[test]
     fn test_basic_config() {
-        let config = Heisenberg::new().spa("./dist").build();
+        let spa = EmbeddedSpa::new("./dist", "");
+        let config = Heisenberg::new().route("/*", spa).build();
         assert_eq!(config.routes.len(), 1);
         assert_eq!(config.routes[0].pattern, "/*");
     }
