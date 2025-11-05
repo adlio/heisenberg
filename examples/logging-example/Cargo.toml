@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-heisenberg = { path = "../..", features = ["logging"] }
+heisenberg = { path = "../../heisenberg", features = ["logging"] }
 axum = "0.7"
 tokio = { version = "1.35", features = ["full"] }
 tracing = "0.1"

@@ -1,6 +1,4 @@
-use rocket::{
-    fs::NamedFile, get, http::Status, launch, response::Redirect, routes, serde::json::Json,
-};
+use rocket::{fs::NamedFile, get, http::Status, launch, routes, serde::json::Json};
 use std::path::{Path, PathBuf};
 
 fn is_dev_mode() -> bool {
