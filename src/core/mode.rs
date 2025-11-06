@@ -20,7 +20,7 @@ pub fn detect_mode() -> Mode {
         }
     }
 
-    // Default to Embed mode for all builds
-    // Use HEISENBERG_MODE=proxy or cargo heisenberg run for development
+    // Default to Embed mode
+    // Use `cargo heisenberg run` or HEISENBERG_MODE=proxy for development
     Mode::Embed
 }
