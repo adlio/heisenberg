@@ -245,19 +245,61 @@ async fn serve_embedded_asset(
     path: &Path,
     route_config: &crate::core::config::SpaRouteConfig,
 ) -> Result<RocketResponse, rocket::http::Status> {
-    // For now, return a placeholder response
-    // This will be implemented when we have the static file service ready
+    use tokio::fs;
+
     let path_str = path.to_string_lossy();
-    let html_content = format!(
-        "<html><body><h1>Production Mode</h1><p>Path: {}</p><p>Route: {}</p></body></html>",
-        path_str, route_config.pattern
-    );
+    let normalized_path = path_str.trim_start_matches('/');
 
-    let response = Response::build()
-        .status(rocket::http::Status::Ok)
-        .header(rocket::http::ContentType::HTML)
-        .sized_body(html_content.len(), Cursor::new(html_content))
-        .finalize();
+    // Try to serve the requested file
+    let file_path = route_config.embed_dir.join(normalized_path);
+    if let Ok(content) = fs::read(&file_path).await {
+        let mime_type = detect_mime_type_rocket(normalized_path);
+        let content_type = rocket::http::ContentType::parse_flexible(mime_type)
+            .unwrap_or(rocket::http::ContentType::Binary);
 
-    Ok(RocketResponse { inner: response })
+        let response = Response::build()
+            .status(rocket::http::Status::Ok)
+            .header(content_type)
+            .sized_body(content.len(), Cursor::new(content))
+            .finalize();
+
+        return Ok(RocketResponse { inner: response });
+    }
+
+    // Fallback to index.html for SPA routing
+    let index_path = route_config.embed_dir.join("index.html");
+    if let Ok(content) = fs::read(&index_path).await {
+        let response = Response::build()
+            .status(rocket::http::Status::Ok)
+            .header(rocket::http::ContentType::HTML)
+            .sized_body(content.len(), Cursor::new(content))
+            .finalize();
+
+        return Ok(RocketResponse { inner: response });
+    }
+
+    Err(rocket::http::Status::NotFound)
+}
+
+fn detect_mime_type_rocket(path: &str) -> &'static str {
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("");
+
+    match ext {
+        "html" => "text/html; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "js" | "mjs" => "application/javascript; charset=utf-8",
+        "json" => "application/json",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "svg" => "image/svg+xml",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        "ttf" => "font/ttf",
+        "ico" => "image/x-icon",
+        _ => "application/octet-stream",
+    }
 }
