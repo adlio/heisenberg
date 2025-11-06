@@ -1,7 +1,7 @@
 <template>
   <div class="container">
-    <h1 class="vue-green">Rocket-Vue Example (DEV MODE)</h1>
-    <p>This demonstrates Heisenberg's Rocket adapter with live Vue development.</p>
+    <h1 class="vue-green">Rocket-Vue Example ({{ mode }})</h1>
+    <p>This demonstrates Heisenberg's Rocket adapter with Vue {{ mode === 'PRODUCTION' ? 'production build' : 'live development' }}.</p>
     
     <button @click="callAPI">Call API</button>
     <div v-if="response" class="response">
@@ -22,7 +22,8 @@
 export default {
   data() {
     return {
-      response: null
+      response: null,
+      mode: import.meta.env.MODE === 'production' ? 'PRODUCTION' : 'DEVELOPMENT'
     }
   },
   methods: {
