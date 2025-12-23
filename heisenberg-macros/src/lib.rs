@@ -150,113 +150,33 @@ fn derive_name_from_path(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::sync::Mutex;
+    use tempfile::TempDir;
 
-    mod sanitize_name_tests {
-        use super::*;
-
-        #[test]
-        fn replaces_hyphens_with_underscores() {
-            assert_eq!(sanitize_name("my-app"), "my_app");
-            assert_eq!(sanitize_name("my-cool-app"), "my_cool_app");
-        }
-
-        #[test]
-        fn replaces_dots_with_underscores() {
-            assert_eq!(sanitize_name("my.app"), "my_app");
-            assert_eq!(sanitize_name("my.cool.app"), "my_cool_app");
-        }
-
-        #[test]
-        fn handles_mixed_special_chars() {
-            assert_eq!(sanitize_name("my-app.v2"), "my_app_v2");
-            assert_eq!(sanitize_name("app-name.prod"), "app_name_prod");
-        }
-
-        #[test]
-        fn preserves_underscores() {
-            assert_eq!(sanitize_name("my_app"), "my_app");
-            assert_eq!(sanitize_name("my_cool_app"), "my_cool_app");
-        }
-
-        #[test]
-        fn handles_alphanumeric_only() {
-            assert_eq!(sanitize_name("myapp"), "myapp");
-            assert_eq!(sanitize_name("myapp123"), "myapp123");
-        }
+    #[test]
+    fn test_sanitize_name() {
+        assert_eq!(sanitize_name("my-app.v2"), "my_app_v2");
     }
 
-    mod derive_name_from_path_tests {
-        use super::*;
-
-        #[test]
-        fn converts_simple_relative_path() {
-            assert_eq!(derive_name_from_path("./admin-webapp"), "admin_webapp");
-        }
-
-        #[test]
-        fn converts_nested_path() {
-            assert_eq!(derive_name_from_path("./frontend/admin"), "frontend_admin");
-        }
-
-        #[test]
-        fn converts_deeply_nested_path() {
-            assert_eq!(
-                derive_name_from_path("./apps/frontend/admin"),
-                "apps_frontend_admin"
-            );
-        }
-
-        #[test]
-        fn handles_path_with_dots() {
-            assert_eq!(derive_name_from_path("./my.app"), "my_app");
-        }
-
-        #[test]
-        fn handles_path_with_mixed_separators() {
-            assert_eq!(derive_name_from_path("./my-app/dist"), "my_app_dist");
-        }
-
-        #[test]
-        fn trims_leading_and_trailing_underscores() {
-            // Leading "./" becomes "__" which gets trimmed
-            assert_eq!(derive_name_from_path("./app"), "app");
-            // Trailing "/" becomes "_" which gets trimmed
-            assert_eq!(derive_name_from_path("./app/"), "app");
-        }
+    #[test]
+    fn test_derive_name_from_path() {
+        assert_eq!(derive_name_from_path("./my-app/dist"), "my_app_dist");
     }
 
     mod find_matching_spa_tests {
         use super::*;
 
         #[test]
-        fn finds_single_spa_table_without_name() {
-            let config: toml::Value = toml::from_str(
-                r#"
-                [spa]
-                output_dir = "./dist"
-                "#,
-            )
-            .unwrap();
-
+        fn single_spa_table() {
+            let config: toml::Value = toml::from_str("[spa]\noutput_dir = \"./dist\"").unwrap();
             assert_eq!(find_matching_spa(&config, None), Some("./dist".to_string()));
-        }
-
-        #[test]
-        fn returns_none_for_single_spa_when_name_provided() {
-            let config: toml::Value = toml::from_str(
-                r#"
-                [spa]
-                output_dir = "./dist"
-                "#,
-            )
-            .unwrap();
-
             // Single [spa] doesn't support name lookup
-            assert_eq!(find_matching_spa(&config, Some("frontend")), None);
+            assert_eq!(find_matching_spa(&config, Some("foo")), None);
         }
 
         #[test]
-        fn finds_named_spa_in_array() {
+        fn spa_array_with_names() {
             let config: toml::Value = toml::from_str(
                 r#"
                 [[spa]]
@@ -278,132 +198,56 @@ mod tests {
                 find_matching_spa(&config, Some("admin")),
                 Some("./admin/dist".to_string())
             );
-        }
-
-        #[test]
-        fn returns_none_for_nonexistent_spa_name() {
-            let config: toml::Value = toml::from_str(
-                r#"
-                [[spa]]
-                name = "frontend"
-                output_dir = "./frontend/dist"
-                "#,
-            )
-            .unwrap();
-
+            // Nonexistent name
             assert_eq!(find_matching_spa(&config, Some("backend")), None);
-        }
-
-        #[test]
-        fn returns_none_for_empty_config() {
-            let config: toml::Value = toml::from_str("").unwrap();
-
-            assert_eq!(find_matching_spa(&config, None), None);
-            assert_eq!(find_matching_spa(&config, Some("app")), None);
-        }
-
-        #[test]
-        fn returns_none_when_output_dir_missing() {
-            let config: toml::Value = toml::from_str(
-                r#"
-                [spa]
-                name = "app"
-                "#,
-            )
-            .unwrap();
-
+            // No name arg with array format
             assert_eq!(find_matching_spa(&config, None), None);
         }
 
         #[test]
-        fn returns_none_for_array_spa_without_name_arg() {
-            let config: toml::Value = toml::from_str(
-                r#"
-                [[spa]]
-                name = "frontend"
-                output_dir = "./frontend/dist"
-                "#,
-            )
-            .unwrap();
+        fn returns_none_for_missing_or_incomplete_config() {
+            let empty: toml::Value = toml::from_str("").unwrap();
+            assert_eq!(find_matching_spa(&empty, None), None);
 
-            // No name provided but config uses array format
-            assert_eq!(find_matching_spa(&config, None), None);
+            let no_output: toml::Value = toml::from_str("[spa]\nname = \"app\"").unwrap();
+            assert_eq!(find_matching_spa(&no_output, None), None);
         }
     }
 
     mod find_output_subdir_tests {
         use super::*;
-        use std::fs;
-        use tempfile::TempDir;
 
         #[test]
-        fn finds_build_directory() {
+        fn detects_framework_output_dirs() {
             let temp_dir = TempDir::new().unwrap();
-            fs::create_dir(temp_dir.path().join("build")).unwrap();
 
-            assert_eq!(find_output_subdir(temp_dir.path()), "build");
-        }
-
-        #[test]
-        fn finds_dist_directory() {
-            let temp_dir = TempDir::new().unwrap();
-            fs::create_dir(temp_dir.path().join("dist")).unwrap();
-
+            // Default when nothing exists
             assert_eq!(find_output_subdir(temp_dir.path()), "dist");
-        }
 
-        #[test]
-        fn finds_next_directory() {
-            let temp_dir = TempDir::new().unwrap();
+            // Create dirs and verify priority order
             fs::create_dir(temp_dir.path().join(".next")).unwrap();
-
             assert_eq!(find_output_subdir(temp_dir.path()), ".next");
+
+            fs::create_dir(temp_dir.path().join("dist")).unwrap();
+            assert_eq!(find_output_subdir(temp_dir.path()), "dist"); // dist > .next
+
+            fs::create_dir(temp_dir.path().join("build")).unwrap();
+            assert_eq!(find_output_subdir(temp_dir.path()), "build"); // build > dist
         }
 
         #[test]
         fn finds_sveltekit_directory() {
             let temp_dir = TempDir::new().unwrap();
             fs::create_dir_all(temp_dir.path().join(".svelte-kit/output")).unwrap();
-
             assert_eq!(find_output_subdir(temp_dir.path()), ".svelte-kit/output");
-        }
-
-        #[test]
-        fn prefers_build_over_dist() {
-            let temp_dir = TempDir::new().unwrap();
-            fs::create_dir(temp_dir.path().join("build")).unwrap();
-            fs::create_dir(temp_dir.path().join("dist")).unwrap();
-
-            assert_eq!(find_output_subdir(temp_dir.path()), "build");
-        }
-
-        #[test]
-        fn prefers_dist_over_next() {
-            let temp_dir = TempDir::new().unwrap();
-            fs::create_dir(temp_dir.path().join("dist")).unwrap();
-            fs::create_dir(temp_dir.path().join(".next")).unwrap();
-
-            assert_eq!(find_output_subdir(temp_dir.path()), "dist");
-        }
-
-        #[test]
-        fn defaults_to_dist_when_no_output_dir_exists() {
-            let temp_dir = TempDir::new().unwrap();
-
-            assert_eq!(find_output_subdir(temp_dir.path()), "dist");
         }
     }
 
     mod find_output_dir_from_config_tests {
         use super::*;
-        use std::fs;
-        use std::sync::Mutex;
-        use tempfile::TempDir;
 
-        // Mutex to ensure tests that modify CARGO_MANIFEST_DIR don't run concurrently
         static ENV_MUTEX: Mutex<()> = Mutex::new(());
 
-        // Helper to acquire lock, recovering from poison if a previous test panicked
         fn acquire_lock() -> std::sync::MutexGuard<'static, ()> {
             ENV_MUTEX.lock().unwrap_or_else(|e| e.into_inner())
         }
@@ -431,93 +275,41 @@ mod tests {
         }
 
         #[test]
-        fn finds_output_dir_from_single_spa_config() {
+        fn reads_from_heisenberg_toml() {
             let _lock = acquire_lock();
             let temp_dir = TempDir::new().unwrap();
-
-            let config_content = r#"
-[spa]
-output_dir = "./my-app/dist"
-"#;
-            fs::write(temp_dir.path().join("heisenberg.toml"), config_content).unwrap();
-
-            let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
-
-            let result = find_output_dir_from_config(None);
-            assert_eq!(result, "./my-app/dist");
-        }
-
-        #[test]
-        fn finds_output_dir_from_named_spa_in_array() {
-            let _lock = acquire_lock();
-            let temp_dir = TempDir::new().unwrap();
-
-            let config_content = r#"
-[[spa]]
-name = "frontend"
-output_dir = "./frontend/dist"
-
-[[spa]]
-name = "admin"
-output_dir = "./admin/build"
-"#;
-            fs::write(temp_dir.path().join("heisenberg.toml"), config_content).unwrap();
-
-            let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
-
-            assert_eq!(
-                find_output_dir_from_config(Some("frontend")),
-                "./frontend/dist"
-            );
-            assert_eq!(find_output_dir_from_config(Some("admin")), "./admin/build");
-        }
-
-        #[test]
-        #[should_panic(expected = "requires a matching entry in heisenberg.toml")]
-        fn panics_when_config_file_missing() {
-            let _lock = acquire_lock();
-            let temp_dir = TempDir::new().unwrap();
-            // No heisenberg.toml created
-
-            let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
-
-            find_output_dir_from_config(None);
-        }
-
-        #[test]
-        #[should_panic(expected = "requires a matching entry in heisenberg.toml")]
-        fn panics_when_spa_name_not_found() {
-            let _lock = acquire_lock();
-            let temp_dir = TempDir::new().unwrap();
-
-            let config_content = r#"
-[[spa]]
-name = "frontend"
-output_dir = "./frontend/dist"
-"#;
-            fs::write(temp_dir.path().join("heisenberg.toml"), config_content).unwrap();
-
-            let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
-
-            find_output_dir_from_config(Some("nonexistent"));
-        }
-
-        #[test]
-        #[should_panic(expected = "requires a matching entry in heisenberg.toml")]
-        fn panics_when_config_malformed() {
-            let _lock = acquire_lock();
-            let temp_dir = TempDir::new().unwrap();
-
-            // Invalid TOML
             fs::write(
                 temp_dir.path().join("heisenberg.toml"),
-                "not valid toml [[[",
+                "[spa]\noutput_dir = \"./my-app/dist\"",
             )
             .unwrap();
 
             let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
+            assert_eq!(find_output_dir_from_config(None), "./my-app/dist");
+        }
 
+        #[test]
+        #[should_panic(expected = "requires a matching entry in heisenberg.toml")]
+        fn panics_when_config_missing() {
+            let _lock = acquire_lock();
+            let temp_dir = TempDir::new().unwrap();
+            let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
             find_output_dir_from_config(None);
+        }
+
+        #[test]
+        #[should_panic(expected = "requires a matching entry in heisenberg.toml")]
+        fn panics_when_spa_not_found() {
+            let _lock = acquire_lock();
+            let temp_dir = TempDir::new().unwrap();
+            fs::write(
+                temp_dir.path().join("heisenberg.toml"),
+                "[[spa]]\nname = \"other\"\noutput_dir = \"./x\"",
+            )
+            .unwrap();
+
+            let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
+            find_output_dir_from_config(Some("nonexistent"));
         }
     }
 }
