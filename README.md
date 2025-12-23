@@ -2,6 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/heisenberg.svg)](https://crates.io/crates/heisenberg)
 [![Documentation](https://docs.rs/heisenberg/badge.svg)](https://docs.rs/heisenberg)
+[![codecov](https://codecov.io/gh/adlio/heisenberg/branch/main/graph/badge.svg)](https://codecov.io/gh/adlio/heisenberg)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Heisenberg serves SPAs from Rust web applications. It switches between proxy mode (forwarding to a frontend dev server) and embed mode (serving assets compiled into your binary).
