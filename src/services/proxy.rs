@@ -254,3 +254,58 @@ impl ProxyService {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ==================== compute_accept_key tests ====================
+
+    #[test]
+    fn test_compute_accept_key_known_value() {
+        // Test with a known WebSocket key and expected accept value
+        // From RFC 6455: key "dGhlIHNhbXBsZSBub25jZQ==" should produce "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+        let key = b"dGhlIHNhbXBsZSBub25jZQ==";
+        let accept = ProxyService::compute_accept_key(key);
+        assert_eq!(accept, "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=");
+    }
+
+    #[test]
+    fn test_compute_accept_key_different_inputs() {
+        // Different keys should produce different accept values
+        let key1 = b"key1";
+        let key2 = b"key2";
+
+        let accept1 = ProxyService::compute_accept_key(key1);
+        let accept2 = ProxyService::compute_accept_key(key2);
+
+        assert_ne!(accept1, accept2);
+    }
+
+    #[test]
+    fn test_compute_accept_key_is_base64() {
+        let key = b"test-websocket-key";
+        let accept = ProxyService::compute_accept_key(key);
+
+        // Should be valid base64
+        use base64::{engine::general_purpose, Engine as _};
+        assert!(general_purpose::STANDARD.decode(&accept).is_ok());
+    }
+
+    // ==================== ProxyService construction tests ====================
+
+    #[test]
+    fn test_proxy_service_new() {
+        let proxy = ProxyService::new("http://localhost:5173".to_string());
+        assert_eq!(proxy.target_url, "http://localhost:5173");
+    }
+
+    #[test]
+    fn test_proxy_service_new_with_different_urls() {
+        let proxy1 = ProxyService::new("http://localhost:3000".to_string());
+        let proxy2 = ProxyService::new("http://127.0.0.1:8080".to_string());
+
+        assert_eq!(proxy1.target_url, "http://localhost:3000");
+        assert_eq!(proxy2.target_url, "http://127.0.0.1:8080");
+    }
+}

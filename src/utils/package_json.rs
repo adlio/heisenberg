@@ -250,3 +250,497 @@ impl InferredConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    // ==================== extract_port_from_script tests ====================
+
+    #[test]
+    fn test_extract_port_with_double_dash_space() {
+        assert_eq!(extract_port_from_script("vite --port 3000"), Some(3000));
+    }
+
+    #[test]
+    fn test_extract_port_with_double_dash_equals() {
+        assert_eq!(extract_port_from_script("vite --port=4000"), Some(4000));
+    }
+
+    #[test]
+    fn test_extract_port_with_short_flag_space() {
+        assert_eq!(extract_port_from_script("vite -p 5000"), Some(5000));
+    }
+
+    #[test]
+    fn test_extract_port_with_short_flag_equals() {
+        assert_eq!(extract_port_from_script("vite -p=6000"), Some(6000));
+    }
+
+    #[test]
+    fn test_extract_port_with_env_var() {
+        assert_eq!(
+            extract_port_from_script("PORT=8080 node server.js"),
+            Some(8080)
+        );
+    }
+
+    #[test]
+    fn test_extract_port_no_port_specified() {
+        assert_eq!(extract_port_from_script("vite"), None);
+    }
+
+    #[test]
+    fn test_extract_port_invalid_port_number() {
+        // Port after flag is not a number
+        assert_eq!(extract_port_from_script("vite --port abc"), None);
+    }
+
+    #[test]
+    fn test_extract_port_in_complex_script() {
+        assert_eq!(
+            extract_port_from_script("cross-env NODE_ENV=dev vite --port 3001 --host"),
+            Some(3001)
+        );
+    }
+
+    // ==================== infer_dev_command tests ====================
+
+    #[test]
+    fn test_infer_dev_command_prefers_dev() {
+        let mut scripts = HashMap::new();
+        scripts.insert("dev".to_string(), "vite".to_string());
+        scripts.insert("start".to_string(), "node server.js".to_string());
+        scripts.insert("serve".to_string(), "serve -s build".to_string());
+
+        let pkg = PackageJson {
+            scripts,
+            name: None,
+            version: None,
+        };
+
+        assert_eq!(infer_dev_command(&pkg), vec!["npm", "run", "dev"]);
+    }
+
+    #[test]
+    fn test_infer_dev_command_falls_back_to_start() {
+        let mut scripts = HashMap::new();
+        scripts.insert("start".to_string(), "node server.js".to_string());
+        scripts.insert("serve".to_string(), "serve -s build".to_string());
+
+        let pkg = PackageJson {
+            scripts,
+            name: None,
+            version: None,
+        };
+
+        assert_eq!(infer_dev_command(&pkg), vec!["npm", "run", "start"]);
+    }
+
+    #[test]
+    fn test_infer_dev_command_falls_back_to_serve() {
+        let mut scripts = HashMap::new();
+        scripts.insert("serve".to_string(), "serve -s build".to_string());
+
+        let pkg = PackageJson {
+            scripts,
+            name: None,
+            version: None,
+        };
+
+        assert_eq!(infer_dev_command(&pkg), vec!["npm", "run", "serve"]);
+    }
+
+    #[test]
+    fn test_infer_dev_command_matches_dev_prefixed() {
+        let mut scripts = HashMap::new();
+        scripts.insert("dev:client".to_string(), "vite".to_string());
+
+        let pkg = PackageJson {
+            scripts,
+            name: None,
+            version: None,
+        };
+
+        assert_eq!(infer_dev_command(&pkg), vec!["npm", "run", "dev:client"]);
+    }
+
+    #[test]
+    fn test_infer_dev_command_default_fallback() {
+        let pkg = PackageJson {
+            scripts: HashMap::new(),
+            name: None,
+            version: None,
+        };
+
+        assert_eq!(infer_dev_command(&pkg), vec!["npm", "run", "dev"]);
+    }
+
+    // ==================== infer_dev_port tests ====================
+
+    #[test]
+    fn test_infer_dev_port_from_script() {
+        let mut scripts = HashMap::new();
+        scripts.insert("dev".to_string(), "vite --port 4200".to_string());
+
+        let pkg = PackageJson {
+            scripts,
+            name: None,
+            version: None,
+        };
+
+        assert_eq!(infer_dev_port(&pkg), 4200);
+    }
+
+    #[test]
+    fn test_infer_dev_port_vite_default() {
+        let mut scripts = HashMap::new();
+        scripts.insert("dev".to_string(), "vite".to_string());
+
+        let pkg = PackageJson {
+            scripts,
+            name: None,
+            version: None,
+        };
+
+        assert_eq!(infer_dev_port(&pkg), 5173);
+    }
+
+    #[test]
+    fn test_infer_dev_port_webpack_default() {
+        let mut scripts = HashMap::new();
+        scripts.insert("dev".to_string(), "webpack serve".to_string());
+
+        let pkg = PackageJson {
+            scripts,
+            name: None,
+            version: None,
+        };
+
+        assert_eq!(infer_dev_port(&pkg), 3000);
+    }
+
+    #[test]
+    fn test_infer_dev_port_react_scripts_default() {
+        let mut scripts = HashMap::new();
+        scripts.insert("start".to_string(), "react-scripts start".to_string());
+
+        let pkg = PackageJson {
+            scripts,
+            name: None,
+            version: None,
+        };
+
+        assert_eq!(infer_dev_port(&pkg), 3000);
+    }
+
+    #[test]
+    fn test_infer_dev_port_next_default() {
+        let mut scripts = HashMap::new();
+        scripts.insert("dev".to_string(), "next dev".to_string());
+
+        let pkg = PackageJson {
+            scripts,
+            name: None,
+            version: None,
+        };
+
+        assert_eq!(infer_dev_port(&pkg), 3000);
+    }
+
+    #[test]
+    fn test_infer_dev_port_empty_scripts_fallback() {
+        let pkg = PackageJson {
+            scripts: HashMap::new(),
+            name: None,
+            version: None,
+        };
+
+        assert_eq!(infer_dev_port(&pkg), 5173);
+    }
+
+    // ==================== read_vite_config_port tests ====================
+
+    #[test]
+    fn test_read_vite_config_port_js() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_content = r#"
+            export default {
+                server: {
+                    port: 4000
+                }
+            }
+        "#;
+        fs::write(temp_dir.path().join("vite.config.js"), config_content).unwrap();
+
+        assert_eq!(read_vite_config_port(temp_dir.path()), Some(4000));
+    }
+
+    #[test]
+    fn test_read_vite_config_port_ts() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_content = r#"
+            import { defineConfig } from 'vite'
+            export default defineConfig({
+                server: {
+                    port: 5000
+                }
+            })
+        "#;
+        fs::write(temp_dir.path().join("vite.config.ts"), config_content).unwrap();
+
+        assert_eq!(read_vite_config_port(temp_dir.path()), Some(5000));
+    }
+
+    #[test]
+    fn test_read_vite_config_port_mjs() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_content = "export default { server: { port: 6000 } }";
+        fs::write(temp_dir.path().join("vite.config.mjs"), config_content).unwrap();
+
+        assert_eq!(read_vite_config_port(temp_dir.path()), Some(6000));
+    }
+
+    #[test]
+    fn test_read_vite_config_port_no_port() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_content = "export default { plugins: [] }";
+        fs::write(temp_dir.path().join("vite.config.js"), config_content).unwrap();
+
+        assert_eq!(read_vite_config_port(temp_dir.path()), None);
+    }
+
+    #[test]
+    fn test_read_vite_config_port_no_config_file() {
+        let temp_dir = TempDir::new().unwrap();
+        assert_eq!(read_vite_config_port(temp_dir.path()), None);
+    }
+
+    // ==================== infer_output_dir tests ====================
+
+    #[test]
+    fn test_infer_output_dir_prefers_build() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::create_dir(temp_dir.path().join("build")).unwrap();
+        fs::create_dir(temp_dir.path().join("dist")).unwrap();
+
+        let result = infer_output_dir(temp_dir.path());
+        assert!(result.ends_with("build"));
+    }
+
+    #[test]
+    fn test_infer_output_dir_falls_back_to_dist() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::create_dir(temp_dir.path().join("dist")).unwrap();
+
+        let result = infer_output_dir(temp_dir.path());
+        assert!(result.ends_with("dist"));
+    }
+
+    #[test]
+    fn test_infer_output_dir_finds_next() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::create_dir(temp_dir.path().join(".next")).unwrap();
+
+        let result = infer_output_dir(temp_dir.path());
+        assert!(result.ends_with(".next"));
+    }
+
+    #[test]
+    fn test_infer_output_dir_finds_sveltekit() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::create_dir_all(temp_dir.path().join(".svelte-kit/output")).unwrap();
+
+        let result = infer_output_dir(temp_dir.path());
+        assert!(result.ends_with("output"));
+    }
+
+    #[test]
+    fn test_infer_output_dir_default_fallback() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let result = infer_output_dir(temp_dir.path());
+        assert!(result.ends_with("build"));
+    }
+
+    // ==================== infer_working_dir tests ====================
+
+    #[test]
+    fn test_infer_working_dir_strips_dist() {
+        let temp_dir = TempDir::new().unwrap();
+        let dist_dir = temp_dir.path().join("dist");
+        fs::create_dir(&dist_dir).unwrap();
+
+        let result = infer_working_dir(&dist_dir).unwrap();
+        assert_eq!(
+            result.canonicalize().unwrap(),
+            temp_dir.path().canonicalize().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_infer_working_dir_strips_build() {
+        let temp_dir = TempDir::new().unwrap();
+        let build_dir = temp_dir.path().join("build");
+        fs::create_dir(&build_dir).unwrap();
+
+        let result = infer_working_dir(&build_dir).unwrap();
+        assert_eq!(
+            result.canonicalize().unwrap(),
+            temp_dir.path().canonicalize().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_infer_working_dir_strips_out() {
+        let temp_dir = TempDir::new().unwrap();
+        let out_dir = temp_dir.path().join("out");
+        fs::create_dir(&out_dir).unwrap();
+
+        let result = infer_working_dir(&out_dir).unwrap();
+        assert_eq!(
+            result.canonicalize().unwrap(),
+            temp_dir.path().canonicalize().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_infer_working_dir_keeps_unrecognized() {
+        let temp_dir = TempDir::new().unwrap();
+        let custom_dir = temp_dir.path().join("custom");
+        fs::create_dir(&custom_dir).unwrap();
+
+        let result = infer_working_dir(&custom_dir).unwrap();
+        assert_eq!(
+            result.canonicalize().unwrap(),
+            custom_dir.canonicalize().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_infer_working_dir_nonexistent() {
+        let result = infer_working_dir(Path::new("/nonexistent/path/dist"));
+        assert!(result.is_err());
+    }
+
+    // ==================== find_package_json tests ====================
+
+    #[test]
+    fn test_find_package_json_in_same_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("package.json"), "{}").unwrap();
+
+        let result = find_package_json(temp_dir.path()).unwrap();
+        assert!(result.ends_with("package.json"));
+    }
+
+    #[test]
+    fn test_find_package_json_in_parent() {
+        let temp_dir = TempDir::new().unwrap();
+        let sub_dir = temp_dir.path().join("sub");
+        fs::create_dir(&sub_dir).unwrap();
+        fs::write(temp_dir.path().join("package.json"), "{}").unwrap();
+
+        let result = find_package_json(&sub_dir).unwrap();
+        assert!(result.ends_with("package.json"));
+    }
+
+    #[test]
+    fn test_find_package_json_walks_up_tree() {
+        let temp_dir = TempDir::new().unwrap();
+        let deep_dir = temp_dir.path().join("a/b/c");
+        fs::create_dir_all(&deep_dir).unwrap();
+        fs::write(temp_dir.path().join("package.json"), "{}").unwrap();
+
+        let result = find_package_json(&deep_dir).unwrap();
+        assert!(result.ends_with("package.json"));
+    }
+
+    #[test]
+    fn test_find_package_json_not_found() {
+        let temp_dir = TempDir::new().unwrap();
+        let result = find_package_json(temp_dir.path());
+        assert!(result.is_err());
+    }
+
+    // ==================== parse_package_json tests ====================
+
+    #[test]
+    fn test_parse_package_json_full() {
+        let temp_dir = TempDir::new().unwrap();
+        let content = r#"{
+            "name": "my-app",
+            "version": "1.0.0",
+            "scripts": {
+                "dev": "vite",
+                "build": "vite build"
+            }
+        }"#;
+        let path = temp_dir.path().join("package.json");
+        fs::write(&path, content).unwrap();
+
+        let result = parse_package_json(&path).unwrap();
+        assert_eq!(result.name, Some("my-app".to_string()));
+        assert_eq!(result.version, Some("1.0.0".to_string()));
+        assert_eq!(result.scripts.get("dev"), Some(&"vite".to_string()));
+    }
+
+    #[test]
+    fn test_parse_package_json_minimal() {
+        let temp_dir = TempDir::new().unwrap();
+        let content = "{}";
+        let path = temp_dir.path().join("package.json");
+        fs::write(&path, content).unwrap();
+
+        let result = parse_package_json(&path).unwrap();
+        assert_eq!(result.name, None);
+        assert_eq!(result.version, None);
+        assert!(result.scripts.is_empty());
+    }
+
+    #[test]
+    fn test_parse_package_json_missing_scripts() {
+        let temp_dir = TempDir::new().unwrap();
+        let content = r#"{"name": "test"}"#;
+        let path = temp_dir.path().join("package.json");
+        fs::write(&path, content).unwrap();
+
+        let result = parse_package_json(&path).unwrap();
+        assert!(result.scripts.is_empty());
+    }
+
+    #[test]
+    fn test_parse_package_json_invalid_json() {
+        let temp_dir = TempDir::new().unwrap();
+        let content = "not valid json";
+        let path = temp_dir.path().join("package.json");
+        fs::write(&path, content).unwrap();
+
+        let result = parse_package_json(&path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_package_json_nonexistent() {
+        let result = parse_package_json(Path::new("/nonexistent/package.json"));
+        assert!(result.is_err());
+    }
+
+    // ==================== InferredConfig::default_for_dir tests ====================
+
+    #[test]
+    fn test_inferred_config_default_for_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        let build_dir = temp_dir.path().join("build");
+
+        let config = InferredConfig::default_for_dir(&build_dir);
+
+        assert_eq!(config.working_dir, temp_dir.path());
+        assert!(config.package_json_path.as_os_str().is_empty());
+        assert_eq!(config.dev_command, vec!["npm", "run", "dev"]);
+        assert_eq!(config.dev_port, 5173);
+        assert_eq!(config.dev_url, "http://localhost:5173");
+    }
+}

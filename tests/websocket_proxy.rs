@@ -1,7 +1,5 @@
 //! WebSocket proxying tests
 
-#![allow(deprecated)] // Tests use deprecated API methods for coverage
-
 use axum::{routing::get, Router};
 use futures_util::{SinkExt, StreamExt};
 use heisenberg::{Heisenberg, HeisenbergLayer};

@@ -158,3 +158,222 @@ impl StaticFileService {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    // ==================== MIME type detection tests ====================
+
+    #[test]
+    fn test_mime_type_html() {
+        let svc = StaticFileService::new(PathBuf::from("."), None);
+        assert_eq!(
+            svc.detect_mime_type("index.html"),
+            "text/html; charset=utf-8"
+        );
+    }
+
+    #[test]
+    fn test_mime_type_css() {
+        let svc = StaticFileService::new(PathBuf::from("."), None);
+        assert_eq!(
+            svc.detect_mime_type("styles.css"),
+            "text/css; charset=utf-8"
+        );
+    }
+
+    #[test]
+    fn test_mime_type_javascript() {
+        let svc = StaticFileService::new(PathBuf::from("."), None);
+        assert_eq!(
+            svc.detect_mime_type("app.js"),
+            "application/javascript; charset=utf-8"
+        );
+        assert_eq!(
+            svc.detect_mime_type("module.mjs"),
+            "application/javascript; charset=utf-8"
+        );
+    }
+
+    #[test]
+    fn test_mime_type_json() {
+        let svc = StaticFileService::new(PathBuf::from("."), None);
+        assert_eq!(svc.detect_mime_type("data.json"), "application/json");
+    }
+
+    #[test]
+    fn test_mime_type_images() {
+        let svc = StaticFileService::new(PathBuf::from("."), None);
+        assert_eq!(svc.detect_mime_type("logo.png"), "image/png");
+        assert_eq!(svc.detect_mime_type("photo.jpg"), "image/jpeg");
+        assert_eq!(svc.detect_mime_type("photo.jpeg"), "image/jpeg");
+        assert_eq!(svc.detect_mime_type("animation.gif"), "image/gif");
+        assert_eq!(svc.detect_mime_type("icon.svg"), "image/svg+xml");
+        assert_eq!(svc.detect_mime_type("favicon.ico"), "image/x-icon");
+    }
+
+    #[test]
+    fn test_mime_type_fonts() {
+        let svc = StaticFileService::new(PathBuf::from("."), None);
+        assert_eq!(svc.detect_mime_type("font.woff"), "font/woff");
+        assert_eq!(svc.detect_mime_type("font.woff2"), "font/woff2");
+        assert_eq!(svc.detect_mime_type("font.ttf"), "font/ttf");
+    }
+
+    #[test]
+    fn test_mime_type_unknown() {
+        let svc = StaticFileService::new(PathBuf::from("."), None);
+        assert_eq!(svc.detect_mime_type("file.xyz"), "application/octet-stream");
+        assert_eq!(
+            svc.detect_mime_type("noextension"),
+            "application/octet-stream"
+        );
+    }
+
+    // ==================== serve_file path safety tests ====================
+
+    #[tokio::test]
+    async fn test_serve_file_success() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("test.txt"), "hello world").unwrap();
+
+        let svc = StaticFileService::new(temp_dir.path().to_path_buf(), None);
+        let result = svc.serve_file("/test.txt").await;
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_serve_file_empty_path_serves_index() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("index.html"), "<html>").unwrap();
+
+        let svc = StaticFileService::new(temp_dir.path().to_path_buf(), None);
+        let result = svc.serve_file("/").await;
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_serve_file_path_traversal_blocked() {
+        let temp_dir = TempDir::new().unwrap();
+        let base_dir = temp_dir.path().join("www");
+        fs::create_dir(&base_dir).unwrap();
+        fs::write(base_dir.join("safe.txt"), "safe").unwrap();
+        // Create a file outside the base directory
+        fs::write(temp_dir.path().join("secret.txt"), "secret").unwrap();
+
+        let svc = StaticFileService::new(base_dir.clone(), None);
+
+        // Try to access file outside base directory with path traversal
+        let result = svc.serve_file("/../secret.txt").await;
+
+        // Should fail - either file not found or path traversal blocked
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_serve_file_not_found() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let svc = StaticFileService::new(temp_dir.path().to_path_buf(), None);
+        let result = svc.serve_file("/nonexistent.txt").await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_serve_file_fallback() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("index.html"), "<html>fallback</html>").unwrap();
+
+        let svc = StaticFileService::new(
+            temp_dir.path().to_path_buf(),
+            Some("index.html".to_string()),
+        );
+        // Request a non-existent file
+        let result = svc.serve_file("/app/dashboard").await;
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_serve_file_no_fallback_returns_error() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("index.html"), "<html>").unwrap();
+
+        let svc = StaticFileService::new(temp_dir.path().to_path_buf(), None);
+        let result = svc.serve_file("/nonexistent").await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_serve_file_correct_content_type() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("styles.css"), "body {}").unwrap();
+
+        let svc = StaticFileService::new(temp_dir.path().to_path_buf(), None);
+        let result = svc.serve_file("/styles.css").await;
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(
+            response.headers().get("content-type").unwrap(),
+            "text/css; charset=utf-8"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_serve_file_strips_leading_slash() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("file.txt"), "content").unwrap();
+
+        let svc = StaticFileService::new(temp_dir.path().to_path_buf(), None);
+
+        // Both with and without leading slash should work
+        let result1 = svc.serve_file("/file.txt").await;
+        let result2 = svc.serve_file("file.txt").await;
+
+        assert!(result1.is_ok());
+        assert!(result2.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_serve_file_nested_path() {
+        let temp_dir = TempDir::new().unwrap();
+        let nested = temp_dir.path().join("assets/images");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(nested.join("logo.png"), "PNG data").unwrap();
+
+        let svc = StaticFileService::new(temp_dir.path().to_path_buf(), None);
+        let result = svc.serve_file("/assets/images/logo.png").await;
+
+        assert!(result.is_ok());
+    }
+
+    // ==================== StaticFileService construction tests ====================
+
+    #[test]
+    fn test_new_with_fallback() {
+        let svc = StaticFileService::new(PathBuf::from("./dist"), Some("index.html".to_string()));
+        assert_eq!(svc.base_dir, PathBuf::from("./dist"));
+        assert_eq!(svc.fallback_file, Some("index.html".to_string()));
+    }
+
+    #[test]
+    fn test_new_without_fallback() {
+        let svc = StaticFileService::new(PathBuf::from("./public"), None);
+        assert_eq!(svc.base_dir, PathBuf::from("./public"));
+        assert_eq!(svc.fallback_file, None);
+    }
+}

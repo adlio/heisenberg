@@ -114,17 +114,10 @@ impl SpaRouteBuilder {
         self
     }
 
-    /// Set the development proxy URL where the frontend dev server will run.
+    /// Set the development proxy URL where the frontend dev server runs.
     ///
-    /// **Deprecated**: Configure `dev_server` in `heisenberg.toml` instead.
-    /// The dev server URL is now automatically discovered from:
-    /// 1. `heisenberg.toml` config file
-    /// 2. `vite.config.js/ts` (if present)
-    /// 3. Fallback to `http://localhost:5173`
-    #[deprecated(
-        since = "0.5.0",
-        note = "Configure dev_server in heisenberg.toml instead"
-    )]
+    /// This is auto-discovered from `heisenberg.toml` or `vite.config.js`,
+    /// but can be overridden for advanced use cases.
     pub fn dev_server(mut self, url: &str) -> Self {
         if let Some(route) = self.heisenberg.routes.get_mut(self.route_index) {
             route.dev_proxy_url = url.to_string();
@@ -134,15 +127,8 @@ impl SpaRouteBuilder {
 
     /// Set the development command to start the frontend dev server.
     ///
-    /// **Deprecated**: Configure `dev_command` in `heisenberg.toml` instead.
-    /// The dev command is now automatically discovered from:
-    /// 1. `heisenberg.toml` config file
-    /// 2. `package.json` scripts
-    /// 3. Fallback to `npm run dev`
-    #[deprecated(
-        since = "0.5.0",
-        note = "Configure dev_command in heisenberg.toml instead"
-    )]
+    /// This is auto-discovered from `heisenberg.toml` or `package.json`,
+    /// but can be overridden for advanced use cases.
     pub fn dev_command<I, S>(mut self, command: I) -> Self
     where
         I: IntoIterator<Item = S>,

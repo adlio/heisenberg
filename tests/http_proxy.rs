@@ -1,7 +1,5 @@
 //! Actual HTTP proxy tests - tests real proxy forwarding
 
-#![allow(deprecated)] // Tests use deprecated API methods for coverage
-
 use axum::{routing::get, Router};
 use heisenberg::{Heisenberg, HeisenbergLayer};
 use tokio::net::TcpListener;
