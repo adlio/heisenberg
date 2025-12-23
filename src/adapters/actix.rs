@@ -22,25 +22,23 @@ use http_body_util::BodyExt;
 /// * `Err(actix_web::Error)` - If serving fails
 ///
 /// # Example
-/// ```rust,no_run
+/// ```rust,ignore
 /// use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Result};
-/// use heisenberg::{Heisenberg, adapters::actix::serve_spa};
+/// use heisenberg::{Heisenberg, EmbeddedSpa, adapters::actix::serve_spa};
 ///
-/// async fn spa_handler(req: HttpRequest) -> Result<HttpResponse> {
-///     let config = Heisenberg::new().spa("./dist").build();
+/// async fn spa_handler(req: HttpRequest, config: web::Data<Heisenberg>) -> Result<HttpResponse> {
 ///     serve_spa(&req, &config).await
-/// }
-///
-/// async fn api_handler() -> Result<HttpResponse> {
-///     Ok(HttpResponse::Ok().json("API response"))
 /// }
 ///
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     HttpServer::new(|| {
+///     let spa = heisenberg::embed_spa!();
+///     let config = Heisenberg::new().route("/*", spa).build();
+///
+///     HttpServer::new(move || {
 ///         App::new()
-///             .route("/api/*", web::get().to(api_handler))
-///             .route("/*", web::get().to(spa_handler))
+///             .app_data(web::Data::new(config.clone()))
+///             .default_service(web::to(spa_handler))
 ///     })
 ///     .bind("127.0.0.1:8080")?
 ///     .run()

@@ -240,14 +240,15 @@ pub async fn spa_catchall(
 /// Returns a Vec of routes that can be mounted to serve a SPA.
 ///
 /// # Example
-/// ```rust,no_run
+/// ```rust,ignore
 /// use heisenberg::{Heisenberg, adapters::rocket::spa_routes};
 /// use rocket::launch;
 ///
 /// #[launch]
 /// fn rocket() -> _ {
-///     let config = Heisenberg::from_working_dir("./web").build();
-///     
+///     let spa = heisenberg::embed_spa!();
+///     let config = Heisenberg::new().route("/*", spa).build();
+///
 ///     rocket::build()
 ///         .manage(config)
 ///         .mount("/", spa_routes())

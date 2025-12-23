@@ -15,17 +15,17 @@ help:
 
 # Build the project
 build:
-	cargo build
+	cargo build --all-features
 
 # Run tests with nextest
 test:
-	cargo nextest run
+	cargo nextest run --all-features
 
 # Generate coverage report
 coverage:
-	cargo llvm-cov nextest --html
+	cargo llvm-cov nextest --all-features --html
 	@echo "\n=== Coverage Summary ==="
-	cargo llvm-cov nextest --summary-only
+	cargo llvm-cov nextest --all-features --summary-only
 
 # Run clippy linter
 lint:
