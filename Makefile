@@ -23,9 +23,13 @@ test:
 
 # Generate coverage report
 coverage:
-	cargo llvm-cov nextest --all-features --html
-	@echo "\n=== Coverage Summary ==="
-	cargo llvm-cov nextest --all-features --summary-only
+	cargo llvm-cov nextest --workspace --all-features --html \
+		--exclude actix-react \
+		--exclude axum-multi-spa \
+		--exclude axum-sveltekit \
+		--exclude rocket-multi-spa \
+		--exclude rocket-vue
+	open target/llvm-cov/html/index.html
 
 # Run clippy linter
 lint:
