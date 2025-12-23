@@ -76,7 +76,7 @@ async fn start_echo_server() -> u16 {
         axum::serve(listener, app).await.unwrap();
     });
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     port
 }
 
@@ -103,7 +103,7 @@ async fn test_proxy_forwards_query_string() {
         axum::serve(listener, app).await.unwrap();
     });
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     let client = reqwest::Client::new();
     let res = client
@@ -144,7 +144,7 @@ async fn test_proxy_forwards_custom_headers() {
         axum::serve(listener, app).await.unwrap();
     });
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     let client = reqwest::Client::new();
     let res = client
@@ -187,7 +187,7 @@ async fn test_proxy_preserves_both_headers_and_query() {
         axum::serve(listener, app).await.unwrap();
     });
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     let client = reqwest::Client::new();
     let res = client
@@ -201,11 +201,20 @@ async fn test_proxy_preserves_both_headers_and_query() {
     let body = res.text().await.unwrap();
 
     // Check query params
-    assert!(body.contains("query:page=1"));
-    assert!(body.contains("query:limit=10"));
+    assert!(
+        body.contains("query:page=1"),
+        "Expected body to contain 'query:page=1', got: {body}"
+    );
+    assert!(
+        body.contains("query:limit=10"),
+        "Expected body to contain 'query:limit=10', got: {body}"
+    );
 
     // Check headers
-    assert!(body.contains("header:x-request-id=test-123"));
+    assert!(
+        body.contains("header:x-request-id=test-123"),
+        "Expected body to contain 'header:x-request-id=test-123', got: {body}"
+    );
 
     std::env::remove_var("HEISENBERG_MODE");
     std::env::remove_var("HEISENBERG_SKIP_DEV_SERVER");
@@ -231,7 +240,7 @@ async fn test_proxy_error_page_contains_troubleshooting() {
         axum::serve(listener, app).await.unwrap();
     });
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     let client = reqwest::Client::new();
     let res = client
@@ -279,7 +288,7 @@ async fn test_proxy_forwards_response_headers() {
         axum::serve(listener, app).await.unwrap();
     });
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     let dev_url = format!("http://localhost:{}", dev_port);
 
@@ -298,7 +307,7 @@ async fn test_proxy_forwards_response_headers() {
         axum::serve(proxy_listener, proxy_app).await.unwrap();
     });
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     let client = reqwest::Client::new();
     let res = client

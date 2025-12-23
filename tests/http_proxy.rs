@@ -16,7 +16,7 @@ async fn start_mock_dev_server() -> u16 {
         axum::serve(listener, app).await.unwrap();
     });
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     port
 }
 
@@ -43,7 +43,7 @@ async fn test_proxy_forwards_requests() {
         axum::serve(listener, app).await.unwrap();
     });
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     let client = reqwest::Client::new();
     let res = client
@@ -85,7 +85,7 @@ async fn test_proxy_skips_api_routes() {
         axum::serve(listener, app).await.unwrap();
     });
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     let client = reqwest::Client::new();
     let res = client
@@ -122,7 +122,7 @@ async fn test_proxy_error_handling() {
         axum::serve(listener, app).await.unwrap();
     });
 
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     let client = reqwest::Client::new();
     let res = client
