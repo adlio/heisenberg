@@ -146,3 +146,251 @@ fn derive_name_from_path(path: &str) -> String {
         .trim_matches('_')
         .to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod sanitize_name_tests {
+        use super::*;
+
+        #[test]
+        fn replaces_hyphens_with_underscores() {
+            assert_eq!(sanitize_name("my-app"), "my_app");
+            assert_eq!(sanitize_name("my-cool-app"), "my_cool_app");
+        }
+
+        #[test]
+        fn replaces_dots_with_underscores() {
+            assert_eq!(sanitize_name("my.app"), "my_app");
+            assert_eq!(sanitize_name("my.cool.app"), "my_cool_app");
+        }
+
+        #[test]
+        fn handles_mixed_special_chars() {
+            assert_eq!(sanitize_name("my-app.v2"), "my_app_v2");
+            assert_eq!(sanitize_name("app-name.prod"), "app_name_prod");
+        }
+
+        #[test]
+        fn preserves_underscores() {
+            assert_eq!(sanitize_name("my_app"), "my_app");
+            assert_eq!(sanitize_name("my_cool_app"), "my_cool_app");
+        }
+
+        #[test]
+        fn handles_alphanumeric_only() {
+            assert_eq!(sanitize_name("myapp"), "myapp");
+            assert_eq!(sanitize_name("myapp123"), "myapp123");
+        }
+    }
+
+    mod derive_name_from_path_tests {
+        use super::*;
+
+        #[test]
+        fn converts_simple_relative_path() {
+            assert_eq!(derive_name_from_path("./admin-webapp"), "admin_webapp");
+        }
+
+        #[test]
+        fn converts_nested_path() {
+            assert_eq!(derive_name_from_path("./frontend/admin"), "frontend_admin");
+        }
+
+        #[test]
+        fn converts_deeply_nested_path() {
+            assert_eq!(
+                derive_name_from_path("./apps/frontend/admin"),
+                "apps_frontend_admin"
+            );
+        }
+
+        #[test]
+        fn handles_path_with_dots() {
+            assert_eq!(derive_name_from_path("./my.app"), "my_app");
+        }
+
+        #[test]
+        fn handles_path_with_mixed_separators() {
+            assert_eq!(derive_name_from_path("./my-app/dist"), "my_app_dist");
+        }
+
+        #[test]
+        fn trims_leading_and_trailing_underscores() {
+            // Leading "./" becomes "__" which gets trimmed
+            assert_eq!(derive_name_from_path("./app"), "app");
+            // Trailing "/" becomes "_" which gets trimmed
+            assert_eq!(derive_name_from_path("./app/"), "app");
+        }
+    }
+
+    mod find_matching_spa_tests {
+        use super::*;
+
+        #[test]
+        fn finds_single_spa_table_without_name() {
+            let config: toml::Value = toml::from_str(
+                r#"
+                [spa]
+                output_dir = "./dist"
+                "#,
+            )
+            .unwrap();
+
+            assert_eq!(find_matching_spa(&config, None), Some("./dist".to_string()));
+        }
+
+        #[test]
+        fn returns_none_for_single_spa_when_name_provided() {
+            let config: toml::Value = toml::from_str(
+                r#"
+                [spa]
+                output_dir = "./dist"
+                "#,
+            )
+            .unwrap();
+
+            // Single [spa] doesn't support name lookup
+            assert_eq!(find_matching_spa(&config, Some("frontend")), None);
+        }
+
+        #[test]
+        fn finds_named_spa_in_array() {
+            let config: toml::Value = toml::from_str(
+                r#"
+                [[spa]]
+                name = "frontend"
+                output_dir = "./frontend/dist"
+
+                [[spa]]
+                name = "admin"
+                output_dir = "./admin/dist"
+                "#,
+            )
+            .unwrap();
+
+            assert_eq!(
+                find_matching_spa(&config, Some("frontend")),
+                Some("./frontend/dist".to_string())
+            );
+            assert_eq!(
+                find_matching_spa(&config, Some("admin")),
+                Some("./admin/dist".to_string())
+            );
+        }
+
+        #[test]
+        fn returns_none_for_nonexistent_spa_name() {
+            let config: toml::Value = toml::from_str(
+                r#"
+                [[spa]]
+                name = "frontend"
+                output_dir = "./frontend/dist"
+                "#,
+            )
+            .unwrap();
+
+            assert_eq!(find_matching_spa(&config, Some("backend")), None);
+        }
+
+        #[test]
+        fn returns_none_for_empty_config() {
+            let config: toml::Value = toml::from_str("").unwrap();
+
+            assert_eq!(find_matching_spa(&config, None), None);
+            assert_eq!(find_matching_spa(&config, Some("app")), None);
+        }
+
+        #[test]
+        fn returns_none_when_output_dir_missing() {
+            let config: toml::Value = toml::from_str(
+                r#"
+                [spa]
+                name = "app"
+                "#,
+            )
+            .unwrap();
+
+            assert_eq!(find_matching_spa(&config, None), None);
+        }
+
+        #[test]
+        fn returns_none_for_array_spa_without_name_arg() {
+            let config: toml::Value = toml::from_str(
+                r#"
+                [[spa]]
+                name = "frontend"
+                output_dir = "./frontend/dist"
+                "#,
+            )
+            .unwrap();
+
+            // No name provided but config uses array format
+            assert_eq!(find_matching_spa(&config, None), None);
+        }
+    }
+
+    mod find_output_subdir_tests {
+        use super::*;
+        use std::fs;
+        use tempfile::TempDir;
+
+        #[test]
+        fn finds_build_directory() {
+            let temp_dir = TempDir::new().unwrap();
+            fs::create_dir(temp_dir.path().join("build")).unwrap();
+
+            assert_eq!(find_output_subdir(temp_dir.path()), "build");
+        }
+
+        #[test]
+        fn finds_dist_directory() {
+            let temp_dir = TempDir::new().unwrap();
+            fs::create_dir(temp_dir.path().join("dist")).unwrap();
+
+            assert_eq!(find_output_subdir(temp_dir.path()), "dist");
+        }
+
+        #[test]
+        fn finds_next_directory() {
+            let temp_dir = TempDir::new().unwrap();
+            fs::create_dir(temp_dir.path().join(".next")).unwrap();
+
+            assert_eq!(find_output_subdir(temp_dir.path()), ".next");
+        }
+
+        #[test]
+        fn finds_sveltekit_directory() {
+            let temp_dir = TempDir::new().unwrap();
+            fs::create_dir_all(temp_dir.path().join(".svelte-kit/output")).unwrap();
+
+            assert_eq!(find_output_subdir(temp_dir.path()), ".svelte-kit/output");
+        }
+
+        #[test]
+        fn prefers_build_over_dist() {
+            let temp_dir = TempDir::new().unwrap();
+            fs::create_dir(temp_dir.path().join("build")).unwrap();
+            fs::create_dir(temp_dir.path().join("dist")).unwrap();
+
+            assert_eq!(find_output_subdir(temp_dir.path()), "build");
+        }
+
+        #[test]
+        fn prefers_dist_over_next() {
+            let temp_dir = TempDir::new().unwrap();
+            fs::create_dir(temp_dir.path().join("dist")).unwrap();
+            fs::create_dir(temp_dir.path().join(".next")).unwrap();
+
+            assert_eq!(find_output_subdir(temp_dir.path()), "dist");
+        }
+
+        #[test]
+        fn defaults_to_dist_when_no_output_dir_exists() {
+            let temp_dir = TempDir::new().unwrap();
+
+            assert_eq!(find_output_subdir(temp_dir.path()), "dist");
+        }
+    }
+}
