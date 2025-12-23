@@ -17,6 +17,7 @@ Thumbs.db
 /target/llvm-cov/
 *.profraw
 *.profdata
+lcov.info
 
 # AI Agent Steering
 .amazonq
