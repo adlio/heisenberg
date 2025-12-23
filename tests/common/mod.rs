@@ -1,5 +1,9 @@
-//! Common test utilities and fixtures
+//! Shared test utilities
 
-pub mod test_utils;
+#![allow(unused)]
 
+mod env_guard;
+mod test_utils;
+
+pub use env_guard::EnvGuard;
 pub use test_utils::TestSpaFixture;

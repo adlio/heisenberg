@@ -75,3 +75,4 @@ httpmock = "0.7"
 criterion = { version = "0.5", features = ["html_reports"] }
 axum = "0.7"
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
+serial_test = "3.0"

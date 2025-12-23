@@ -20,11 +20,13 @@ cargo install --path ../../cargo-heisenberg
 cargo heisenberg run
 ```
 
-**Server:** http://127.0.0.1:8000  
-**API:** `/api/hello`  
+**Server:** http://127.0.0.1:8000
+**API:** `/api/hello`
 **Frontends:**
 - Main app: Vite dev server on port 3000 (proxied at `/`)
 - Admin app: Vite dev server on port 3001 (proxied at `/admin/*`)
+
+> **Note:** The Rocket adapter does not currently support WebSocket proxying, so Hot Module Reload (HMR) won't work. You'll need to manually refresh the page to see changes. For full HMR support, use the Axum integration.
 
 ## Production (Embed Mode)
 

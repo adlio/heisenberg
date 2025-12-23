@@ -1,14 +1,14 @@
 //! Shared testing utilities for Heisenberg integration tests
 
+#![allow(dead_code)]
+
 use std::path::PathBuf;
 use tempfile::TempDir;
 
 /// Test fixture for creating temporary SPA projects
 pub struct TestSpaFixture {
-    #[allow(dead_code)] // Will be used in Phase 3 for process management
     pub temp_dir: TempDir,
     pub dist_dir: PathBuf,
-    #[allow(dead_code)] // Will be used in Phase 3 for package.json inference
     pub package_json_path: PathBuf,
 }
 
@@ -58,7 +58,6 @@ impl TestSpaFixture {
     }
 
     /// Get the working directory path
-    #[allow(dead_code)] // Will be used in Phase 3 for process management
     pub fn working_dir(&self) -> &std::path::Path {
         self.temp_dir.path()
     }

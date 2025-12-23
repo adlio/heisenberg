@@ -32,9 +32,11 @@ Heisenberg checks for frontend directories in this order: `./web`, `./frontend`,
 cargo heisenberg run
 ```
 
-**Server:** http://127.0.0.1:8080  
-**API:** `/api/hello`  
-**Frontend:** Vite dev server on port 5173 (proxied at `/*` with HMR)
+**Server:** http://127.0.0.1:8080
+**API:** `/api/hello`
+**Frontend:** Vite dev server on port 5173 (proxied at `/*`)
+
+> **Note:** The Actix adapter does not currently support WebSocket proxying, so Hot Module Reload (HMR) won't work. You'll need to manually refresh the page to see changes. For full HMR support, use the Axum integration.
 
 ## Production (Embed Mode)
 

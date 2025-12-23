@@ -129,7 +129,7 @@ let config = Heisenberg::new()
 
 | Command | Mode | Behavior |
 |---------|------|----------|
-| `cargo heisenberg run` | Proxy | Forwards to dev server with HMR |
+| `cargo heisenberg run` | Proxy | Forwards to dev server |
 | `cargo run` | Embed | Serves embedded assets |
 | `cargo build --release` | Embed | Compiles assets into binary |
 | `HEISENBERG_MODE=proxy cargo run` | Proxy | Force proxy mode |
@@ -137,7 +137,10 @@ let config = Heisenberg::new()
 
 ## Framework Support
 
-### Axum
+### Axum (recommended)
+
+Axum is the only framework with all features supported, including WebSocket 
+proxying for Hot Module Reload (HMR).
 
 ```rust
 let spa = heisenberg::embed_spa!();
@@ -151,6 +154,9 @@ let app = Router::new()
 ```
 
 ### Actix-web
+
+In actix, embed and proxy modes both work, but proxy mode doesn't support Hot Module Reload.
+You'll need to hard-refresh to see JS app changes.
 
 ```rust
 let spa = heisenberg::embed_spa!();
@@ -167,6 +173,9 @@ HttpServer::new(move || {
 ```
 
 ### Rocket
+
+In actix, embed and proxy modes both work, but proxy mode doesn't support Hot Module Reload.
+You'll need to hard-refresh to see JS app changes.
 
 ```rust
 let spa = heisenberg::embed_spa!();
