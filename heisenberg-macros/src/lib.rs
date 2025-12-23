@@ -393,4 +393,131 @@ mod tests {
             assert_eq!(find_output_subdir(temp_dir.path()), "dist");
         }
     }
+
+    mod find_output_dir_from_config_tests {
+        use super::*;
+        use std::fs;
+        use std::sync::Mutex;
+        use tempfile::TempDir;
+
+        // Mutex to ensure tests that modify CARGO_MANIFEST_DIR don't run concurrently
+        static ENV_MUTEX: Mutex<()> = Mutex::new(());
+
+        // Helper to acquire lock, recovering from poison if a previous test panicked
+        fn acquire_lock() -> std::sync::MutexGuard<'static, ()> {
+            ENV_MUTEX.lock().unwrap_or_else(|e| e.into_inner())
+        }
+
+        struct EnvGuard {
+            key: &'static str,
+            original: Option<String>,
+        }
+
+        impl EnvGuard {
+            fn new(key: &'static str, value: &str) -> Self {
+                let original = std::env::var(key).ok();
+                std::env::set_var(key, value);
+                Self { key, original }
+            }
+        }
+
+        impl Drop for EnvGuard {
+            fn drop(&mut self) {
+                match &self.original {
+                    Some(val) => std::env::set_var(self.key, val),
+                    None => std::env::remove_var(self.key),
+                }
+            }
+        }
+
+        #[test]
+        fn finds_output_dir_from_single_spa_config() {
+            let _lock = acquire_lock();
+            let temp_dir = TempDir::new().unwrap();
+
+            let config_content = r#"
+[spa]
+output_dir = "./my-app/dist"
+"#;
+            fs::write(temp_dir.path().join("heisenberg.toml"), config_content).unwrap();
+
+            let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
+
+            let result = find_output_dir_from_config(None);
+            assert_eq!(result, "./my-app/dist");
+        }
+
+        #[test]
+        fn finds_output_dir_from_named_spa_in_array() {
+            let _lock = acquire_lock();
+            let temp_dir = TempDir::new().unwrap();
+
+            let config_content = r#"
+[[spa]]
+name = "frontend"
+output_dir = "./frontend/dist"
+
+[[spa]]
+name = "admin"
+output_dir = "./admin/build"
+"#;
+            fs::write(temp_dir.path().join("heisenberg.toml"), config_content).unwrap();
+
+            let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
+
+            assert_eq!(
+                find_output_dir_from_config(Some("frontend")),
+                "./frontend/dist"
+            );
+            assert_eq!(find_output_dir_from_config(Some("admin")), "./admin/build");
+        }
+
+        #[test]
+        #[should_panic(expected = "requires a matching entry in heisenberg.toml")]
+        fn panics_when_config_file_missing() {
+            let _lock = acquire_lock();
+            let temp_dir = TempDir::new().unwrap();
+            // No heisenberg.toml created
+
+            let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
+
+            find_output_dir_from_config(None);
+        }
+
+        #[test]
+        #[should_panic(expected = "requires a matching entry in heisenberg.toml")]
+        fn panics_when_spa_name_not_found() {
+            let _lock = acquire_lock();
+            let temp_dir = TempDir::new().unwrap();
+
+            let config_content = r#"
+[[spa]]
+name = "frontend"
+output_dir = "./frontend/dist"
+"#;
+            fs::write(temp_dir.path().join("heisenberg.toml"), config_content).unwrap();
+
+            let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
+
+            find_output_dir_from_config(Some("nonexistent"));
+        }
+
+        #[test]
+        #[should_panic(expected = "requires a matching entry in heisenberg.toml")]
+        fn panics_when_config_malformed() {
+            let _lock = acquire_lock();
+            let temp_dir = TempDir::new().unwrap();
+
+            // Invalid TOML
+            fs::write(
+                temp_dir.path().join("heisenberg.toml"),
+                "not valid toml [[[",
+            )
+            .unwrap();
+
+            let _guard = EnvGuard::new("CARGO_MANIFEST_DIR", temp_dir.path().to_str().unwrap());
+
+            find_output_dir_from_config(None);
+        }
+    }
 }
