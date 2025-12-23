@@ -1,12 +1,17 @@
 //! End-to-end HTTP serving tests
 
+mod common;
+
 use axum::{routing::get, Router};
+use common::EnvGuard;
 use heisenberg::{EmbeddedSpa, Heisenberg, HeisenbergLayer};
+use serial_test::serial;
 use tokio::net::TcpListener;
 
 #[tokio::test]
+#[serial]
 async fn test_config_with_embedded_spa() {
-    std::env::set_var("HEISENBERG_MODE", "embed");
+    let _guard = EnvGuard::remove("HEISENBERG_MODE");
 
     let spa = EmbeddedSpa::new("./tests/fixtures/minimal-spa/dist", "");
     let config = Heisenberg::new().route("/*", spa).build();
@@ -26,8 +31,9 @@ async fn test_route_pattern_validation() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_api_routes_not_intercepted() {
-    std::env::set_var("HEISENBERG_MODE", "embed");
+    let _guard = EnvGuard::remove("HEISENBERG_MODE");
 
     let spa = EmbeddedSpa::new("./tests/fixtures/minimal-spa/dist", "");
     let config = Heisenberg::new().route("/*", spa).build();

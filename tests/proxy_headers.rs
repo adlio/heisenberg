@@ -1,8 +1,12 @@
 //! Tests for ProxyService header forwarding and query string handling
 
+mod common;
+
 use axum::{extract::Query, routing::get, Router};
+use common::EnvGuard;
 use heisenberg::{Heisenberg, HeisenbergLayer};
 use serde::Deserialize;
+use serial_test::serial;
 use std::collections::HashMap;
 use tokio::net::TcpListener;
 
@@ -81,9 +85,10 @@ async fn start_echo_server() -> u16 {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_proxy_forwards_query_string() {
-    std::env::set_var("HEISENBERG_MODE", "proxy");
-    std::env::set_var("HEISENBERG_SKIP_DEV_SERVER", "1");
+    let _mode = EnvGuard::set("HEISENBERG_MODE", "proxy");
+    let _skip = EnvGuard::set("HEISENBERG_SKIP_DEV_SERVER", "1");
 
     let dev_port = start_echo_server().await;
     let dev_url = format!("http://localhost:{}", dev_port);
@@ -116,15 +121,13 @@ async fn test_proxy_forwards_query_string() {
     let body = res.text().await.unwrap();
     assert!(body.contains("foo=bar"));
     assert!(body.contains("baz=qux"));
-
-    std::env::remove_var("HEISENBERG_MODE");
-    std::env::remove_var("HEISENBERG_SKIP_DEV_SERVER");
 }
 
 #[tokio::test]
+#[serial]
 async fn test_proxy_forwards_custom_headers() {
-    std::env::set_var("HEISENBERG_MODE", "proxy");
-    std::env::set_var("HEISENBERG_SKIP_DEV_SERVER", "1");
+    let _mode = EnvGuard::set("HEISENBERG_MODE", "proxy");
+    let _skip = EnvGuard::set("HEISENBERG_SKIP_DEV_SERVER", "1");
 
     let dev_port = start_echo_server().await;
     let dev_url = format!("http://localhost:{}", dev_port);
@@ -159,15 +162,13 @@ async fn test_proxy_forwards_custom_headers() {
     let body = res.text().await.unwrap();
     assert!(body.contains("x-custom-header:custom-value"));
     assert!(body.contains("x-another-header:another-value"));
-
-    std::env::remove_var("HEISENBERG_MODE");
-    std::env::remove_var("HEISENBERG_SKIP_DEV_SERVER");
 }
 
 #[tokio::test]
+#[serial]
 async fn test_proxy_preserves_both_headers_and_query() {
-    std::env::set_var("HEISENBERG_MODE", "proxy");
-    std::env::set_var("HEISENBERG_SKIP_DEV_SERVER", "1");
+    let _mode = EnvGuard::set("HEISENBERG_MODE", "proxy");
+    let _skip = EnvGuard::set("HEISENBERG_SKIP_DEV_SERVER", "1");
 
     let dev_port = start_echo_server().await;
     let dev_url = format!("http://localhost:{}", dev_port);
@@ -215,15 +216,13 @@ async fn test_proxy_preserves_both_headers_and_query() {
         body.contains("header:x-request-id=test-123"),
         "Expected body to contain 'header:x-request-id=test-123', got: {body}"
     );
-
-    std::env::remove_var("HEISENBERG_MODE");
-    std::env::remove_var("HEISENBERG_SKIP_DEV_SERVER");
 }
 
 #[tokio::test]
+#[serial]
 async fn test_proxy_error_page_contains_troubleshooting() {
-    std::env::set_var("HEISENBERG_MODE", "proxy");
-    std::env::set_var("HEISENBERG_SKIP_DEV_SERVER", "1");
+    let _mode = EnvGuard::set("HEISENBERG_MODE", "proxy");
+    let _skip = EnvGuard::set("HEISENBERG_SKIP_DEV_SERVER", "1");
 
     let spa = heisenberg::embed_spa!("./tests/fixtures/minimal-spa/dist");
     let config = Heisenberg::new()
@@ -257,15 +256,13 @@ async fn test_proxy_error_page_contains_troubleshooting() {
     assert!(body.contains("Troubleshooting"));
     assert!(body.contains("localhost:59995"));
     assert!(body.contains("npm run dev"));
-
-    std::env::remove_var("HEISENBERG_MODE");
-    std::env::remove_var("HEISENBERG_SKIP_DEV_SERVER");
 }
 
 #[tokio::test]
+#[serial]
 async fn test_proxy_forwards_response_headers() {
-    std::env::set_var("HEISENBERG_MODE", "proxy");
-    std::env::set_var("HEISENBERG_SKIP_DEV_SERVER", "1");
+    let _mode = EnvGuard::set("HEISENBERG_MODE", "proxy");
+    let _skip = EnvGuard::set("HEISENBERG_SKIP_DEV_SERVER", "1");
 
     // Server that sets custom response headers
     let app = Router::new().route(
@@ -331,7 +328,4 @@ async fn test_proxy_forwards_response_headers() {
             .map(|v| v.to_str().unwrap()),
         Some("no-cache")
     );
-
-    std::env::remove_var("HEISENBERG_MODE");
-    std::env::remove_var("HEISENBERG_SKIP_DEV_SERVER");
 }

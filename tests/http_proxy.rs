@@ -1,7 +1,11 @@
 //! Actual HTTP proxy tests - tests real proxy forwarding
 
+mod common;
+
 use axum::{routing::get, Router};
+use common::EnvGuard;
 use heisenberg::{Heisenberg, HeisenbergLayer};
+use serial_test::serial;
 use tokio::net::TcpListener;
 
 async fn start_mock_dev_server() -> u16 {
@@ -21,9 +25,10 @@ async fn start_mock_dev_server() -> u16 {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_proxy_forwards_requests() {
-    std::env::set_var("HEISENBERG_MODE", "proxy");
-    std::env::set_var("HEISENBERG_SKIP_DEV_SERVER", "1");
+    let _mode = EnvGuard::set("HEISENBERG_MODE", "proxy");
+    let _skip = EnvGuard::set("HEISENBERG_SKIP_DEV_SERVER", "1");
 
     let dev_port = start_mock_dev_server().await;
     let dev_url = format!("http://localhost:{}", dev_port);
@@ -55,15 +60,13 @@ async fn test_proxy_forwards_requests() {
     assert_eq!(res.status(), 200);
     let body = res.text().await.unwrap();
     assert_eq!(body, "<html>Dev Server</html>");
-
-    std::env::remove_var("HEISENBERG_MODE");
-    std::env::remove_var("HEISENBERG_SKIP_DEV_SERVER");
 }
 
 #[tokio::test]
+#[serial]
 async fn test_proxy_skips_api_routes() {
-    std::env::set_var("HEISENBERG_MODE", "proxy");
-    std::env::set_var("HEISENBERG_SKIP_DEV_SERVER", "1");
+    let _mode = EnvGuard::set("HEISENBERG_MODE", "proxy");
+    let _skip = EnvGuard::set("HEISENBERG_SKIP_DEV_SERVER", "1");
 
     let dev_port = start_mock_dev_server().await;
     let dev_url = format!("http://localhost:{}", dev_port);
@@ -97,15 +100,13 @@ async fn test_proxy_skips_api_routes() {
     assert_eq!(res.status(), 200);
     let body = res.text().await.unwrap();
     assert_eq!(body, "backend API");
-
-    std::env::remove_var("HEISENBERG_MODE");
-    std::env::remove_var("HEISENBERG_SKIP_DEV_SERVER");
 }
 
 #[tokio::test]
+#[serial]
 async fn test_proxy_error_handling() {
-    std::env::set_var("HEISENBERG_MODE", "proxy");
-    std::env::set_var("HEISENBERG_SKIP_DEV_SERVER", "1");
+    let _mode = EnvGuard::set("HEISENBERG_MODE", "proxy");
+    let _skip = EnvGuard::set("HEISENBERG_SKIP_DEV_SERVER", "1");
 
     let spa = heisenberg::embed_spa!("./tests/fixtures/minimal-spa/dist");
     let config = Heisenberg::new()
@@ -132,7 +133,4 @@ async fn test_proxy_error_handling() {
         .unwrap();
 
     assert_eq!(res.status(), 503);
-
-    std::env::remove_var("HEISENBERG_MODE");
-    std::env::remove_var("HEISENBERG_SKIP_DEV_SERVER");
 }

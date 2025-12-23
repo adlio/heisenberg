@@ -1,8 +1,12 @@
 //! WebSocket proxying tests
 
+mod common;
+
 use axum::{routing::get, Router};
+use common::EnvGuard;
 use futures_util::{SinkExt, StreamExt};
 use heisenberg::{Heisenberg, HeisenbergLayer};
+use serial_test::serial;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -39,12 +43,13 @@ async fn start_echo_server() -> (SocketAddr, Arc<AtomicUsize>) {
 /// Tests WebSocket proxy: basic functionality and that aborted connections
 /// don't create orphaned backend connections (the rapid-refresh bug fix).
 #[tokio::test]
+#[serial]
 async fn test_websocket_proxy() {
+    let _mode = EnvGuard::set("HEISENBERG_MODE", "proxy");
+    let _skip = EnvGuard::set("HEISENBERG_SKIP_DEV_SERVER", "1");
+
     let (backend_addr, total_connections) = start_echo_server().await;
     let backend_url = format!("http://127.0.0.1:{}", backend_addr.port());
-
-    std::env::set_var("HEISENBERG_MODE", "proxy");
-    std::env::set_var("HEISENBERG_SKIP_DEV_SERVER", "1");
 
     let spa = heisenberg::EmbeddedSpa::new("./tests/fixtures/minimal-spa/dist", "");
     let config = Heisenberg::new()
@@ -102,7 +107,4 @@ async fn test_websocket_proxy() {
     } else {
         panic!("Expected echo response");
     }
-
-    std::env::remove_var("HEISENBERG_MODE");
-    std::env::remove_var("HEISENBERG_SKIP_DEV_SERVER");
 }
