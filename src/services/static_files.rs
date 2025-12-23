@@ -267,15 +267,44 @@ mod tests {
         let base_dir = temp_dir.path().join("www");
         fs::create_dir(&base_dir).unwrap();
         fs::write(base_dir.join("safe.txt"), "safe").unwrap();
+        fs::create_dir_all(base_dir.join("assets")).unwrap();
         // Create a file outside the base directory
         fs::write(temp_dir.path().join("secret.txt"), "secret").unwrap();
 
         let svc = StaticFileService::new(base_dir.clone(), None);
 
-        // Try to access file outside base directory with path traversal
-        let result = svc.serve_file("/../secret.txt").await;
+        // Test various traversal patterns - all should fail
+        let attacks = [
+            "/../secret.txt",
+            "../secret.txt",
+            "/../../secret.txt",
+            "/assets/../../secret.txt",
+            "/./../secret.txt",
+        ];
 
-        // Should fail - either file not found or path traversal blocked
+        for attack in attacks {
+            let result = svc.serve_file(attack).await;
+            assert!(result.is_err(), "Should block: {}", attack);
+        }
+    }
+
+    #[tokio::test]
+    #[cfg(unix)]
+    async fn test_serve_file_symlink_escape_blocked() {
+        use std::os::unix::fs::symlink;
+
+        let temp_dir = TempDir::new().unwrap();
+        let base_dir = temp_dir.path().join("www");
+        fs::create_dir(&base_dir).unwrap();
+        fs::write(temp_dir.path().join("secret.txt"), "secret").unwrap();
+
+        // Create symlink inside www pointing outside
+        symlink(temp_dir.path().join("secret.txt"), base_dir.join("evil")).unwrap();
+
+        let svc = StaticFileService::new(base_dir, None);
+        let result = svc.serve_file("/evil").await;
+
+        // canonicalize() resolves symlinks, so this should be blocked
         assert!(result.is_err());
     }
 

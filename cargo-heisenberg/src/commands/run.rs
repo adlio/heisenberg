@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use crossterm::event::{self, Event, KeyCode};
-use heisenberg::config::HeisenbergConfig;
+use heisenberg::config::{HeisenbergConfig, SpaConfig};
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
@@ -10,26 +10,53 @@ use ratatui::{
     Terminal,
 };
 use std::io::{BufRead, BufReader};
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+
+use super::infer;
 
 enum LogSource {
     Frontend(usize, String), // (spa_index, line)
     Backend(String),
 }
 
+/// Parsed run command arguments.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RunArgs {
+    /// Whether to run in plain mode (no TUI)
+    pub no_tui: bool,
+    /// Arguments to pass to cargo run
+    pub cargo_args: Vec<String>,
+}
+
+impl RunArgs {
+    /// Parse cargo arguments, extracting --no-tui flag.
+    pub fn parse(cargo_args: Vec<String>) -> Self {
+        let no_tui = cargo_args.iter().any(|arg| arg == "--no-tui");
+        let cargo_args: Vec<String> = cargo_args
+            .into_iter()
+            .filter(|arg| arg != "--no-tui")
+            .collect();
+
+        Self { no_tui, cargo_args }
+    }
+}
+
+/// Run the dev server command in the current directory.
 pub fn run(cargo_args: Vec<String>) -> Result<()> {
-    // Check for --no-tui flag
-    let no_tui = cargo_args.iter().any(|arg| arg == "--no-tui");
-    let cargo_args: Vec<String> = cargo_args
-        .into_iter()
-        .filter(|arg| arg != "--no-tui")
-        .collect();
+    run_in_dir(Path::new("."), cargo_args)
+}
+
+/// Run the dev server command in the specified directory.
+pub fn run_in_dir(base_dir: &Path, cargo_args: Vec<String>) -> Result<()> {
+    let args = RunArgs::parse(cargo_args);
+    let config_path = base_dir.join("heisenberg.toml");
 
     // Try to load config, or use smart defaults
-    let spas = if let Ok(config) = HeisenbergConfig::from_file("heisenberg.toml") {
+    let spas = if let Ok(config) = HeisenbergConfig::from_file(&config_path) {
         let spa_configs = config.spas();
         if spa_configs.is_empty() {
             anyhow::bail!("No SPA configurations found in heisenberg.toml");
@@ -37,31 +64,19 @@ pub fn run(cargo_args: Vec<String>) -> Result<()> {
         spa_configs.into_iter().cloned().collect::<Vec<_>>()
     } else {
         // Smart defaults: infer from project structure
-        vec![infer_spa_config()?]
+        vec![infer_spa_config(base_dir)?]
     };
 
     // Start all frontend dev servers
     let mut frontends = Vec::new();
     for (idx, spa) in spas.iter().enumerate() {
-        let node_modules = spa.working_dir.join("node_modules");
-        let package_json = spa.working_dir.join("package.json");
+        let working_dir = base_dir.join(&spa.working_dir);
+        let node_modules = working_dir.join("node_modules");
+        let package_json = working_dir.join("package.json");
         let dev_cmd = spa.dev_command.as_deref().unwrap_or("npm run dev");
 
         // Check if npm install is needed
-        let needs_install = !node_modules.exists() || {
-            if let (Ok(pkg_meta), Ok(nm_meta)) = (
-                std::fs::metadata(&package_json),
-                std::fs::metadata(&node_modules),
-            ) {
-                if let (Ok(pkg_time), Ok(nm_time)) = (pkg_meta.modified(), nm_meta.modified()) {
-                    pkg_time > nm_time
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
-        };
+        let needs_install = check_needs_install(&node_modules, &package_json);
 
         let full_cmd = if needs_install {
             format!("npm install && {}", dev_cmd)
@@ -72,21 +87,20 @@ pub fn run(cargo_args: Vec<String>) -> Result<()> {
         let frontend = Command::new("sh")
             .arg("-c")
             .arg(&full_cmd)
-            .current_dir(&spa.working_dir)
+            .current_dir(&working_dir)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .with_context(|| {
-                format!("Failed to start frontend {} at {:?}", idx, spa.working_dir)
-            })?;
+            .with_context(|| format!("Failed to start frontend {} at {:?}", idx, working_dir))?;
 
-        frontends.push((idx, frontend, spa.working_dir.display().to_string()));
+        frontends.push((idx, frontend, working_dir.display().to_string()));
     }
 
     // Start backend with env vars for proxy mode
     let backend = Command::new("cargo")
         .arg("run")
-        .args(&cargo_args)
+        .args(&args.cargo_args)
+        .current_dir(base_dir)
         .env("HEISENBERG_MODE", "proxy")
         .env("HEISENBERG_AUTOSTART_ORIGIN", "false")
         .stdout(Stdio::piped())
@@ -95,13 +109,32 @@ pub fn run(cargo_args: Vec<String>) -> Result<()> {
         .context("Failed to start backend")?;
 
     // Run TUI or plain mode
-    if no_tui {
+    if args.no_tui {
         run_plain(frontends, backend)?;
     } else {
         run_tui(frontends, backend)?;
     }
 
     Ok(())
+}
+
+/// Check if npm install is needed based on node_modules existence and timestamps.
+fn check_needs_install(node_modules: &Path, package_json: &Path) -> bool {
+    if !node_modules.exists() {
+        return true;
+    }
+
+    // Check if package.json is newer than node_modules
+    if let (Ok(pkg_meta), Ok(nm_meta)) = (
+        std::fs::metadata(package_json),
+        std::fs::metadata(node_modules),
+    ) {
+        if let (Ok(pkg_time), Ok(nm_time)) = (pkg_meta.modified(), nm_meta.modified()) {
+            return pkg_time > nm_time;
+        }
+    }
+
+    false
 }
 
 fn run_plain(mut frontends: Vec<(usize, Child, String)>, mut backend: Child) -> Result<()> {
@@ -408,37 +441,123 @@ fn run_tui(mut frontends: Vec<(usize, Child, String)>, mut backend: Child) -> Re
     Ok(())
 }
 
-fn infer_spa_config() -> Result<heisenberg::config::SpaConfig> {
-    use std::path::{Path, PathBuf};
-
-    // Look for ./web or ./frontend
-    let working_dir = if Path::new("./web/package.json").exists() {
-        PathBuf::from("./web")
-    } else if Path::new("./frontend/package.json").exists() {
-        PathBuf::from("./frontend")
-    } else {
-        anyhow::bail!(
-            "No frontend found. Create heisenberg.toml or add ./web/package.json or ./frontend/package.json"
-        );
-    };
-
-    // Infer output directory
-    let output_dir = ["build", "dist", ".next", ".svelte-kit/output"]
-        .iter()
-        .map(|d| working_dir.join(d))
-        .find(|p| p.exists())
-        .unwrap_or_else(|| working_dir.join("build"));
+fn infer_spa_config(base_dir: &Path) -> Result<SpaConfig> {
+    let working_dir = infer::find_frontend_dir(base_dir)?;
+    let abs_working_dir = base_dir.join(&working_dir);
+    let output_dir = infer::find_output_dir(&abs_working_dir);
 
     // Use library's smart inference for dev command and port
     let inferred = heisenberg::utils::infer_from_build_dir(&output_dir)
         .unwrap_or_else(|_| heisenberg::utils::InferredConfig::default_for_dir(&output_dir));
 
-    Ok(heisenberg::config::SpaConfig {
+    Ok(SpaConfig {
         name: None,
         working_dir,
-        output_dir,
+        output_dir: output_dir
+            .strip_prefix(base_dir)
+            .unwrap_or(&output_dir)
+            .to_path_buf(),
         dev_command: Some(inferred.dev_command.join(" ")),
         build_command: None,
         dev_server: Some(inferred.dev_url),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_run_args_parse_extracts_no_tui() {
+        let args = RunArgs::parse(vec!["--no-tui".to_string(), "--release".to_string()]);
+        assert!(args.no_tui);
+        assert_eq!(args.cargo_args, vec!["--release"]);
+    }
+
+    #[test]
+    fn test_run_args_parse_without_no_tui() {
+        let args = RunArgs::parse(vec!["--release".to_string()]);
+        assert!(!args.no_tui);
+        assert_eq!(args.cargo_args, vec!["--release"]);
+    }
+
+    #[test]
+    fn test_check_needs_install_no_node_modules() {
+        let temp = TempDir::new().unwrap();
+        fs::write(temp.path().join("package.json"), "{}").unwrap();
+
+        assert!(check_needs_install(
+            &temp.path().join("node_modules"),
+            &temp.path().join("package.json")
+        ));
+    }
+
+    #[test]
+    fn test_check_needs_install_stale_node_modules() {
+        let temp = TempDir::new().unwrap();
+        fs::create_dir_all(temp.path().join("node_modules")).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        fs::write(temp.path().join("package.json"), "{}").unwrap();
+
+        assert!(check_needs_install(
+            &temp.path().join("node_modules"),
+            &temp.path().join("package.json")
+        ));
+    }
+
+    #[test]
+    fn test_check_needs_install_fresh_node_modules() {
+        let temp = TempDir::new().unwrap();
+        fs::write(temp.path().join("package.json"), "{}").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        fs::create_dir_all(temp.path().join("node_modules")).unwrap();
+
+        assert!(!check_needs_install(
+            &temp.path().join("node_modules"),
+            &temp.path().join("package.json")
+        ));
+    }
+
+    #[test]
+    fn test_infer_spa_config_sets_working_and_output_dir() {
+        let temp = TempDir::new().unwrap();
+        fs::create_dir_all(temp.path().join("web")).unwrap();
+        fs::write(temp.path().join("web/package.json"), "{}").unwrap();
+
+        let config = infer_spa_config(temp.path()).unwrap();
+        assert_eq!(config.working_dir, PathBuf::from("./web"));
+    }
+
+    #[test]
+    fn test_infer_spa_config_includes_dev_command() {
+        let temp = TempDir::new().unwrap();
+        fs::create_dir_all(temp.path().join("web")).unwrap();
+        fs::write(temp.path().join("web/package.json"), "{}").unwrap();
+
+        let config = infer_spa_config(temp.path()).unwrap();
+        assert!(config.dev_command.is_some());
+    }
+
+    #[test]
+    fn test_infer_spa_config_includes_dev_server() {
+        let temp = TempDir::new().unwrap();
+        fs::create_dir_all(temp.path().join("web")).unwrap();
+        fs::write(temp.path().join("web/package.json"), "{}").unwrap();
+
+        let config = infer_spa_config(temp.path()).unwrap();
+        assert!(config.dev_server.is_some());
+    }
+
+    #[test]
+    fn test_infer_spa_config_no_build_command() {
+        let temp = TempDir::new().unwrap();
+        fs::create_dir_all(temp.path().join("web")).unwrap();
+        fs::write(temp.path().join("web/package.json"), "{}").unwrap();
+
+        let config = infer_spa_config(temp.path()).unwrap();
+        assert!(config.build_command.is_none());
+    }
 }

@@ -11,6 +11,10 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 
+[lib]
+name = "cargo_heisenberg"
+path = "src/lib.rs"
+
 [[bin]]
 name = "cargo-heisenberg"
 path = "src/main.rs"
@@ -24,3 +28,8 @@ clap = { version = "4.4", features = ["derive"] }
 anyhow = "1.0"
 ratatui = "0.26"
 crossterm = "0.27"
+
+[dev-dependencies]
+tempfile = "3"
+assert_cmd = "2"
+predicates = "3"
