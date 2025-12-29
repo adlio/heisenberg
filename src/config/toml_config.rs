@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 /// Root configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeisenbergConfig {
-    /// SPA configurations (supports both single [spa] and array [[spa]])
+    /// SPA configurations (supports both single `[spa]` and array `[[spa]]`)
     #[serde(default)]
     pub spa: SpaConfigOrArray,
 }

@@ -1,62 +1,73 @@
-.PHONY: build test coverage lint format check-all clean help npm-audit-fix
+# Heisenberg Build System
+# Requires: cargo-nextest, cargo-llvm-cov (auto-installed if missing)
 
-# Default target
-help:
-	@echo "Available targets:"
-	@echo "  build     - Build the project"
-	@echo "  test      - Run tests with nextest"
-	@echo "  coverage  - Generate test coverage report"
-	@echo "  lint      - Run clippy linter"
-	@echo "  format    - Format code with rustfmt"
-	@echo "  check-all - Run all quality checks"
-	@echo "  bench     - Run performance benchmarks"
-	@echo "  clean     - Clean build artifacts"
-	@echo "  npm-audit-fix - Run npm audit fix in all example packages"
+.DEFAULT_GOAL := help
 
-# Build the project
-build:
-	cargo build --all-features
+.PHONY: help test coverage coverage-html build build-release clean fmt fmt-check lint check all ci ensure-tools bench npm-audit-fix doc doc-check
 
-# Run tests with nextest
-test:
-	cargo nextest run --all-features
+# Tool installation helpers
+CARGO_NEXTEST := $(shell command -v cargo-nextest 2>/dev/null)
+CARGO_LLVM_COV := $(shell command -v cargo-llvm-cov 2>/dev/null)
 
-# Generate coverage report
-coverage:
-	cargo llvm-cov nextest --workspace --all-features --html \
-		--exclude actix-react \
-		--exclude axum-multi-spa \
-		--exclude axum-sveltekit \
-		--exclude rocket-multi-spa \
-		--exclude rocket-vue
+ensure-tools: ## Install required cargo tools if missing
+ifndef CARGO_NEXTEST
+	@echo "Installing cargo-nextest..."
+	@cargo install cargo-nextest --locked
+endif
+ifndef CARGO_LLVM_COV
+	@echo "Installing cargo-llvm-cov..."
+	@cargo install cargo-llvm-cov --locked
+endif
+
+help: ## Show available targets
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+all: ensure-tools fmt lint build test ## Format, lint, build, and test
+
+ci: ensure-tools fmt-check lint build test doc-check ## Full CI checks (superset of GitHub CI)
+
+
+test: ensure-tools ## Run tests with nextest
+	cargo nextest run --workspace --all-features
+
+coverage: ensure-tools ## Show coverage summary in console
+	cargo llvm-cov nextest --workspace --all-features
+
+coverage-html: ensure-tools ## Generate HTML coverage report and open
+	cargo llvm-cov nextest --workspace --all-features --html
 	open target/llvm-cov/html/index.html
 
-# Run clippy linter
-lint:
-	cargo clippy --all-targets --all-features -- -D warnings
+build: ## Build debug
+	cargo build --workspace --all-targets --all-features
 
-# Format code
-format:
-	cargo fmt
+build-release: ## Build release
+	cargo build --workspace --all-targets --all-features --release
 
-# Check formatting without modifying files
-format-check:
-	cargo fmt --check
+check: ## Run cargo check
+	cargo check --workspace --all-targets --all-features
 
-# Run all quality checks
-check-all: format-check lint test
+fmt: ## Format code
+	cargo fmt --all
 
-# Run benchmarks
-bench:
-	@echo "Running performance benchmarks..."
-	cargo bench --bench performance
+fmt-check: ## Check formatting
+	cargo fmt --all -- --check
 
-# Clean build artifacts
-clean:
+lint: ## Run clippy
+	cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+clean: ## Clean build artifacts
 	cargo clean
 
-# Run npm audit fix in all example packages
-npm-audit-fix:
+doc: ## Generate docs and open
+	cargo doc --workspace --no-deps --open
+
+doc-check: ## Check docs build without warnings
+	RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+
+bench: ## Run performance benchmarks
+	cargo bench --bench performance
+
+npm-audit-fix: ## Run npm audit fix in all example packages
 	@for pkg in $$(find examples -name "package.json" -not -path "*/node_modules/*"); do \
 		dir=$$(dirname $$pkg); \
 		echo "=== Auditing $$dir ==="; \

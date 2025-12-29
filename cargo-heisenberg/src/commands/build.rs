@@ -30,7 +30,7 @@ pub fn run_in_dir(base_dir: &Path, cargo_args: Vec<String>) -> Result<()> {
         if spas.len() > 1 {
             println!("📦 Building SPA {} at {:?}", idx + 1, spa.working_dir);
         }
-        build_spa(&spa, base_dir)?;
+        build_spa(spa, base_dir)?;
     }
 
     // Run cargo build
@@ -244,6 +244,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // Requires npm/node and clean SvelteKit state - run manually
     fn test_run_in_dir_with_example() {
         let example_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()

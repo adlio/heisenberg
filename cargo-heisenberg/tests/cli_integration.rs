@@ -9,7 +9,7 @@ use std::fs;
 use tempfile::TempDir;
 
 fn cargo_heisenberg() -> Command {
-    Command::cargo_bin("cargo-heisenberg").unwrap()
+    Command::new(assert_cmd::cargo::cargo_bin!("cargo-heisenberg"))
 }
 
 #[test]
