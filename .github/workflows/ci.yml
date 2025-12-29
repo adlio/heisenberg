@@ -69,3 +69,26 @@ jobs:
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  examples:
+    name: Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: Swatinem/rust-cache@v2
+      - name: Build example frontends
+        run: |
+          find examples -name "package.json" -not -path "*/node_modules/*" -exec dirname {} \; | while read dir; do
+            echo "Building $dir..."
+            (cd "$dir" && npm ci && npm run build)
+          done
+      - name: Build examples
+        run: |
+          for dir in examples/*/; do
+            echo "Building $dir..."
+            (cd "$dir" && cargo build)
+          done

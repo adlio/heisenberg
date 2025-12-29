@@ -2,7 +2,6 @@
 members = [
     "cargo-heisenberg",
     "heisenberg-macros",
-    "examples/*",
 ]
 resolver = "2"
 
