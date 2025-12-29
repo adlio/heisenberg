@@ -3,6 +3,9 @@ name = "rocket-vue"
 version = "0.1.0"
 edition = "2021"
 
+# Opt out of parent workspace (examples are standalone projects)
+[workspace]
+
 [dependencies]
 heisenberg = { path = "../..", features = ["rocket"] }
 rocket = { version = "0.5", features = ["json"] }

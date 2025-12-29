@@ -1,5 +1,5 @@
 # Rust
-/target/
+**/target/
 **/*.rs.bk
 Cargo.lock
 
@@ -31,3 +31,4 @@ examples/**/custom-build
 examples/**/dist
 examples/**/custom-dist
 node_modules
+.frontend-built

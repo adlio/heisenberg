@@ -3,6 +3,9 @@ name = "axum-sveltekit"
 version = "0.1.0"
 edition = "2021"
 
+# Opt out of parent workspace (examples are standalone projects)
+[workspace]
+
 [dependencies]
 heisenberg = { path = "../..", features = ["axum"] }
 axum = "0.7"
