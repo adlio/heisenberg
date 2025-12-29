@@ -1,5 +1,6 @@
 # Heisenberg
 
+[![CI](https://github.com/adlio/heisenberg/actions/workflows/ci.yml/badge.svg)](https://github.com/adlio/heisenberg/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/heisenberg.svg)](https://crates.io/crates/heisenberg)
 [![Documentation](https://docs.rs/heisenberg/badge.svg)](https://docs.rs/heisenberg)
 [![codecov](https://codecov.io/gh/adlio/heisenberg/branch/main/graph/badge.svg)](https://codecov.io/gh/adlio/heisenberg)
