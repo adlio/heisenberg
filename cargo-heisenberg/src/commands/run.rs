@@ -307,7 +307,7 @@ fn run_tui(mut frontends: Vec<(usize, Child, String)>, mut backend: Child) -> Re
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(constraints)
-                .split(f.size());
+                .split(f.area());
 
             // Render frontend panes
             for (idx, logs) in frontend_logs.iter().enumerate() {
