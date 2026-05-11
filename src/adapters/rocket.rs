@@ -60,6 +60,16 @@ pub async fn serve_spa(
     uri: &str,
     config: &Heisenberg,
 ) -> Result<RocketResponse, rocket::http::Status> {
+    serve_spa_with_request(uri, config, None).await
+}
+
+/// Like [`serve_spa`] but also honors a client-supplied `If-None-Match`
+/// header for HTTP 304 revalidation in embed mode.
+pub async fn serve_spa_with_request(
+    uri: &str,
+    config: &Heisenberg,
+    if_none_match: Option<&str>,
+) -> Result<RocketResponse, rocket::http::Status> {
     let mode = detect_mode();
 
     println!("🔍 Rocket: uri={}, mode={:?}", uri, mode);
@@ -76,7 +86,9 @@ pub async fn serve_spa(
 
     match mode {
         Mode::Proxy => proxy_request_uri(uri, route_config).await,
-        Mode::Embed => serve_embedded_asset(Path::new(path_only), route_config).await,
+        Mode::Embed => {
+            serve_embedded_asset(Path::new(path_only), route_config, if_none_match).await
+        }
     }
 }
 
@@ -161,14 +173,16 @@ async fn proxy_request_uri(
 async fn serve_embedded_asset(
     path: &Path,
     route_config: &crate::core::config::SpaRouteConfig,
+    if_none_match: Option<&str>,
 ) -> Result<RocketResponse, rocket::http::Status> {
     let path_str = path.to_string_lossy();
     let stripped_path = path_str.trim_start_matches('/');
 
-    match crate::services::embed_registry::serve_embedded_asset(
+    match crate::services::embed_registry::serve_embedded_asset_cached(
         &route_config.embed_dir.to_string_lossy(),
         stripped_path,
         route_config.fallback_file.as_deref(),
+        if_none_match,
     ) {
         Ok(hyper_response) => {
             let status = hyper_response.status();
@@ -202,8 +216,12 @@ async fn serve_embedded_asset(
     }
 }
 
-/// Request guard to capture full URI with query string
-pub struct FullUri(String);
+/// Request guard to capture full URI with query string and the
+/// `If-None-Match` header (used for HTTP 304 revalidation in embed mode).
+pub struct FullUri {
+    uri: String,
+    if_none_match: Option<String>,
+}
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for FullUri {
@@ -216,14 +234,24 @@ impl<'r> FromRequest<'r> for FullUri {
         } else {
             path.to_string()
         };
-        request::Outcome::Success(FullUri(full))
+        let if_none_match = req
+            .headers()
+            .get_one("if-none-match")
+            .map(|s| s.to_string());
+        request::Outcome::Success(FullUri {
+            uri: full,
+            if_none_match,
+        })
     }
 }
 
 /// Pre-built route handler for SPA root (/)
 #[get("/", rank = 1)]
-pub async fn spa_root(config: &State<Heisenberg>) -> Result<RocketResponse, rocket::http::Status> {
-    serve_spa("index.html", config).await
+pub async fn spa_root(
+    uri: FullUri,
+    config: &State<Heisenberg>,
+) -> Result<RocketResponse, rocket::http::Status> {
+    serve_spa_with_request("index.html", config, uri.if_none_match.as_deref()).await
 }
 
 /// Pre-built route handler for SPA catchall (/<_..>)
@@ -232,7 +260,7 @@ pub async fn spa_catchall(
     uri: FullUri,
     config: &State<Heisenberg>,
 ) -> Result<RocketResponse, rocket::http::Status> {
-    serve_spa(&uri.0, config).await
+    serve_spa_with_request(&uri.uri, config, uri.if_none_match.as_deref()).await
 }
 
 /// Generate routes for SPA serving

@@ -1,6 +1,7 @@
 //! Registry for embedded assets
 
 use crate::error::HeisenbergError;
+use crate::services::cache::{etag_for, if_none_match, policy_for_path};
 use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper::{Response, StatusCode};
@@ -30,11 +31,30 @@ pub fn get_embedded_asset(spa_path: &str, file_path: &str) -> Option<Vec<u8>> {
     registry.get(spa_path).and_then(|getter| getter(file_path))
 }
 
-/// Serve embedded asset with proper MIME type
+/// Serve embedded asset with proper MIME type.
+///
+/// Equivalent to [`serve_embedded_asset_cached`] with no `If-None-Match`
+/// header. Kept for backwards compatibility — new callers should prefer the
+/// cached variant so clients can revalidate.
 pub fn serve_embedded_asset(
     spa_path: &str,
     file_path: &str,
     fallback: Option<&str>,
+) -> Result<Response<Body>, HeisenbergError> {
+    serve_embedded_asset_cached(spa_path, file_path, fallback, None)
+}
+
+/// Serve an embedded asset with smart HTTP caching headers.
+///
+/// Adds a strong content-hash `ETag` and a `Cache-Control` header chosen by
+/// [`crate::services::cache::policy_for_path`]. If the caller supplies the
+/// request's `If-None-Match` value and it matches the asset's ETag, returns
+/// `304 Not Modified` with no body.
+pub fn serve_embedded_asset_cached(
+    spa_path: &str,
+    file_path: &str,
+    fallback: Option<&str>,
+    if_none_match_header: Option<&str>,
 ) -> Result<Response<Body>, HeisenbergError> {
     let clean_path = file_path.trim_start_matches('/');
     let path_to_serve = if clean_path.is_empty() {
@@ -44,23 +64,28 @@ pub fn serve_embedded_asset(
     };
 
     if let Some(content) = get_embedded_asset(spa_path, path_to_serve) {
-        let mime_type = detect_mime_type(path_to_serve);
-        return Ok(Response::builder()
-            .status(StatusCode::OK)
-            .header("content-type", mime_type)
-            .body(Full::new(Bytes::from(content)))
-            .unwrap());
+        return Ok(build_cached_response(
+            spa_path,
+            path_to_serve,
+            content,
+            if_none_match_header,
+        ));
     }
 
     // Try fallback
     if let Some(fallback_path) = fallback {
         if let Some(content) = get_embedded_asset(spa_path, fallback_path) {
-            let mime_type = detect_mime_type(fallback_path);
-            return Ok(Response::builder()
-                .status(StatusCode::OK)
-                .header("content-type", mime_type)
-                .body(Full::new(Bytes::from(content)))
-                .unwrap());
+            // Use the originally-requested path for cache policy — bare SPA
+            // routes should revalidate even when their bytes come from
+            // index.html — but key the ETag on the actual file so multiple
+            // unknown routes share the same cached digest.
+            return Ok(build_cached_response_with_paths(
+                spa_path,
+                fallback_path,
+                path_to_serve,
+                content,
+                if_none_match_header,
+            ));
         }
     }
 
@@ -68,6 +93,46 @@ pub fn serve_embedded_asset(
         file_path,
         "Embedded asset not found",
     ))
+}
+
+fn build_cached_response(
+    spa_path: &str,
+    path: &str,
+    content: Vec<u8>,
+    if_none_match_header: Option<&str>,
+) -> Response<Body> {
+    build_cached_response_with_paths(spa_path, path, path, content, if_none_match_header)
+}
+
+fn build_cached_response_with_paths(
+    spa_path: &str,
+    etag_path: &str,
+    policy_path: &str,
+    content: Vec<u8>,
+    if_none_match_header: Option<&str>,
+) -> Response<Body> {
+    let etag = etag_for(spa_path, etag_path, &content);
+    let policy = policy_for_path(policy_path);
+
+    if let Some(client_etag) = if_none_match_header {
+        if if_none_match(client_etag, &etag) {
+            return Response::builder()
+                .status(StatusCode::NOT_MODIFIED)
+                .header("etag", &etag)
+                .header("cache-control", policy.cache_control())
+                .body(Full::new(Bytes::new()))
+                .unwrap();
+        }
+    }
+
+    let mime_type = detect_mime_type(policy_path);
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("content-type", mime_type)
+        .header("etag", &etag)
+        .header("cache-control", policy.cache_control())
+        .body(Full::new(Bytes::from(content)))
+        .unwrap()
 }
 
 fn detect_mime_type(path: &str) -> &'static str {
@@ -256,5 +321,186 @@ mod tests {
             Some("also-missing.html"),
         );
         assert!(result.is_err());
+    }
+
+    // ==================== smart caching tests ====================
+
+    #[test]
+    fn serves_etag_and_cache_control_on_200() {
+        register_embedded_assets("cache-spa-1", |path| {
+            if path == "app.abc12345.js" {
+                Some(b"console.log('hi');".to_vec())
+            } else {
+                None
+            }
+        });
+
+        let resp =
+            serve_embedded_asset_cached("cache-spa-1", "/app.abc12345.js", None, None).unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let etag = resp.headers().get("etag").expect("etag header missing");
+        let etag = etag.to_str().unwrap();
+        assert!(etag.starts_with('"') && etag.ends_with('"'));
+
+        let cc = resp
+            .headers()
+            .get("cache-control")
+            .expect("cache-control missing")
+            .to_str()
+            .unwrap();
+        assert!(
+            cc.contains("immutable"),
+            "expected immutable policy, got {cc}"
+        );
+    }
+
+    #[test]
+    fn html_gets_no_cache_policy() {
+        register_embedded_assets("cache-spa-html", |path| {
+            if path == "index.html" {
+                Some(b"<html></html>".to_vec())
+            } else {
+                None
+            }
+        });
+
+        let resp =
+            serve_embedded_asset_cached("cache-spa-html", "/index.html", None, None).unwrap();
+        let cc = resp
+            .headers()
+            .get("cache-control")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert_eq!(cc, "no-cache");
+    }
+
+    #[test]
+    fn plain_assets_get_short_lived_policy() {
+        register_embedded_assets("cache-spa-plain", |path| {
+            if path == "favicon.ico" {
+                Some(vec![0, 1, 2, 3])
+            } else {
+                None
+            }
+        });
+
+        let resp =
+            serve_embedded_asset_cached("cache-spa-plain", "/favicon.ico", None, None).unwrap();
+        let cc = resp
+            .headers()
+            .get("cache-control")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(cc.contains("must-revalidate"), "got {cc}");
+        assert!(cc.contains("max-age=3600"), "got {cc}");
+    }
+
+    #[tokio::test]
+    async fn matching_if_none_match_returns_304_without_body() {
+        register_embedded_assets("cache-spa-304", |path| {
+            if path == "asset.5f3a9b2c.js" {
+                Some(b"payload".to_vec())
+            } else {
+                None
+            }
+        });
+
+        // First fetch to learn the ETag.
+        let first =
+            serve_embedded_asset_cached("cache-spa-304", "/asset.5f3a9b2c.js", None, None).unwrap();
+        let etag = first
+            .headers()
+            .get("etag")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        let second =
+            serve_embedded_asset_cached("cache-spa-304", "/asset.5f3a9b2c.js", None, Some(&etag))
+                .unwrap();
+        assert_eq!(second.status(), StatusCode::NOT_MODIFIED);
+        // 304 responses must still carry the ETag and Cache-Control.
+        assert_eq!(
+            second.headers().get("etag").unwrap().to_str().unwrap(),
+            etag
+        );
+        assert!(second.headers().get("cache-control").is_some());
+        // And must have no body.
+        let bytes = http_body_util::BodyExt::collect(second.into_body())
+            .await
+            .unwrap()
+            .to_bytes();
+        assert!(bytes.is_empty());
+    }
+
+    #[test]
+    fn nonmatching_if_none_match_returns_200() {
+        register_embedded_assets("cache-spa-mismatch", |path| {
+            if path == "main.js" {
+                Some(b"hello".to_vec())
+            } else {
+                None
+            }
+        });
+
+        let resp = serve_embedded_asset_cached(
+            "cache-spa-mismatch",
+            "/main.js",
+            None,
+            Some("\"totally-different\""),
+        )
+        .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[test]
+    fn etag_is_stable_across_requests() {
+        register_embedded_assets("cache-spa-stable", |path| {
+            if path == "bundle.js" {
+                Some(b"contents".to_vec())
+            } else {
+                None
+            }
+        });
+
+        let a = serve_embedded_asset_cached("cache-spa-stable", "/bundle.js", None, None).unwrap();
+        let b = serve_embedded_asset_cached("cache-spa-stable", "/bundle.js", None, None).unwrap();
+        assert_eq!(
+            a.headers().get("etag").unwrap(),
+            b.headers().get("etag").unwrap()
+        );
+    }
+
+    #[test]
+    fn spa_fallback_uses_no_cache_for_bare_route() {
+        register_embedded_assets("cache-spa-fallback", |path| {
+            if path == "index.html" {
+                Some(b"<html>shell</html>".to_vec())
+            } else {
+                None
+            }
+        });
+
+        let resp = serve_embedded_asset_cached(
+            "cache-spa-fallback",
+            "/dashboard",
+            Some("index.html"),
+            None,
+        )
+        .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let cc = resp
+            .headers()
+            .get("cache-control")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        // The requested path (/dashboard) has no extension → HTML-shell, must
+        // revalidate so users see new deployments without a hard refresh.
+        assert_eq!(cc, "no-cache");
     }
 }

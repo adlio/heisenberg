@@ -185,11 +185,17 @@ where
                             path.trim_start_matches('/')
                         };
 
-                        // Serve from embedded assets only
-                        match crate::services::embed_registry::serve_embedded_asset(
+                        // Serve from embedded assets, honoring the client's
+                        // If-None-Match header for 304 revalidation.
+                        let if_none_match = headers
+                            .get("if-none-match")
+                            .and_then(|v| v.to_str().ok())
+                            .map(|s| s.to_string());
+                        match crate::services::embed_registry::serve_embedded_asset_cached(
                             &route_config.embed_dir.to_string_lossy(),
                             stripped_path,
                             route_config.fallback_file.as_deref(),
+                            if_none_match.as_deref(),
                         ) {
                             Ok(response) => {
                                 let (parts, body) = response.into_parts();

@@ -1,5 +1,6 @@
 //! Service implementations for Heisenberg
 
+pub mod cache;
 pub mod embed_registry;
 pub mod health;
 pub mod process;

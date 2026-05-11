@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Smart HTTP caching for embedded assets**: embed mode now emits strong
+  content-hash `ETag` headers, returns `304 Not Modified` on matching
+  `If-None-Match`, and picks a `Cache-Control` policy from the asset path:
+  - Fingerprinted assets (e.g. `app.abc12345.js`, files inside
+    `/assets/`, `/_app/immutable/`, `/_next/static/`, `/_astro/`) get
+    `public, max-age=31536000, immutable`.
+  - HTML and bare SPA routes get `no-cache` so deployments are picked up
+    immediately without a hard refresh.
+  - Everything else gets `public, max-age=3600, must-revalidate`.
+- New public API `services::embed_registry::serve_embedded_asset_cached`
+  and `services::cache` module (`CachePolicy`, `policy_for_path`,
+  `compute_etag`, `etag_for`, `if_none_match`).
+- Rocket adapter: new `serve_spa_with_request` helper that threads the
+  client's `If-None-Match` header through to the cache layer.
+
 ## [0.4.0] - 2025-11-05
 
 ### Added

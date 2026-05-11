@@ -58,7 +58,14 @@ pub async fn serve_spa(req: &HttpRequest, config: &Heisenberg) -> ActixResult<Ht
 
     match mode {
         Mode::Proxy => proxy_request(req, route_config).await,
-        Mode::Embed => serve_embedded_asset(path, route_config).await,
+        Mode::Embed => {
+            let if_none_match = req
+                .headers()
+                .get("if-none-match")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string());
+            serve_embedded_asset(path, route_config, if_none_match.as_deref()).await
+        }
     }
 }
 
@@ -125,13 +132,15 @@ async fn proxy_request(
 async fn serve_embedded_asset(
     path: &str,
     route_config: &crate::core::config::SpaRouteConfig,
+    if_none_match: Option<&str>,
 ) -> ActixResult<HttpResponse> {
     let stripped_path = path.strip_prefix('/').unwrap_or(path);
 
-    match crate::services::embed_registry::serve_embedded_asset(
+    match crate::services::embed_registry::serve_embedded_asset_cached(
         &route_config.embed_dir.to_string_lossy(),
         stripped_path,
         route_config.fallback_file.as_deref(),
+        if_none_match,
     ) {
         Ok(response) => {
             let status = response.status();
