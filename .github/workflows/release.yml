@@ -56,10 +56,26 @@ jobs:
           #   heisenberg-macros (no internal deps)
           #   heisenberg        (depends on heisenberg-macros)
           #   cargo-heisenberg  (depends on heisenberg)
+          #
+          # We tolerate the case where a crate version was already published
+          # (e.g. a previous run got partway through and we're re-running),
+          # but any other failure aborts the job loudly.
+          set -euo pipefail
           crates=(heisenberg-macros heisenberg cargo-heisenberg)
           for crate in "${crates[@]}"; do
-            echo "Publishing $crate..."
-            cargo publish -p "$crate" || echo "$crate already published, skipping"
+            echo "::group::Publishing $crate"
+            if output=$(cargo publish -p "$crate" 2>&1); then
+              echo "$output"
+              echo "Published $crate"
+            elif echo "$output" | grep -qiE "already (uploaded|exists)"; then
+              echo "$output"
+              echo "$crate already published at this version, skipping"
+            else
+              echo "$output" >&2
+              echo "::error::Failed to publish $crate"
+              exit 1
+            fi
+            echo "::endgroup::"
             echo "Waiting for crates.io index to update..."
             sleep 30
           done
