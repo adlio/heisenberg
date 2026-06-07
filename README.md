@@ -20,7 +20,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-heisenberg = "0.4"
+heisenberg = "0.5"
 axum = "0.7"
 tokio = { version = "1.35", features = ["full"] }
 rust-embed = "8.0"

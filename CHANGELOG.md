@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-06
+
+### Changed
+
+- **`reqwest` now uses `rustls-tls` instead of `native-tls`**: drops the dependency on the system OpenSSL/`libssl` (no more dynamic linking to the host's TLS stack). This makes binaries that depend on `heisenberg` more portable across Linux distributions and removes a build-time requirement for OpenSSL development headers.
+
+### Internal
+
+- Significant test coverage improvements across `core`, `services`, `embed_registry`, the `embed_spa!` macro, and the actix + rocket adapters.
+- CI: example builds verified in GitHub Actions; coverage uploaded to Codecov via `cargo-llvm-cov`; pre-commit hook (`cargo-husky`) running `make ci` locally.
+- Tag-triggered release workflow added: pushing a `vX.Y.Z` tag now creates a GitHub Release from the matching changelog section and publishes `heisenberg-macros`, `heisenberg`, and `cargo-heisenberg` to crates.io in dependency order.
+
 ## [0.4.0] - 2025-11-05
 
 ### Added
