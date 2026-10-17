@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-10-17
+
+### Changed
+
+- **MSRV raised to Rust 1.88** (from 1.70). Required by the `ratatui` 0.30 upgrade below. Consumers on an older toolchain must update.
+
+### Security
+
+- Updated dependencies to resolve three advisories:
+  - `reqwest` 0.11 -> 0.12 (resolves RUSTSEC-2025-0134: unmaintained `rustls-pemfile`). The `rustls-tls` / no-default-features configuration is preserved, so no OpenSSL is reintroduced.
+  - `ratatui` 0.26 -> 0.30 (resolves RUSTSEC-2026-0002: unsound `lru` `IterMut`).
+  - `httpmock` (dev-dependency) 0.7 -> 0.8 (resolves RUSTSEC-2025-0052: discontinued `async-std`).
+  - Also bumped `crossterm` 0.27 -> 0.29, `tokio-tungstenite` 0.21 -> 0.26, `base64` 0.21 -> 0.22.
+
 ## [0.5.0] - 2026-06-06
 
 ### Changed
