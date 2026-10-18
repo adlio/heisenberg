@@ -84,7 +84,7 @@ pub use crate::tower::{HeisenbergLayer, HeisenbergService};
 #[doc(hidden)]
 pub use ctor;
 #[doc(hidden)]
-pub use paste;
+pub use pastey as paste;
 #[doc(hidden)]
 pub use rust_embed;
 
