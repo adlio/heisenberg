@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-10-18
+
+### Security
+
+- Replaced the unmaintained `paste` crate with its maintained drop-in fork `pastey` (resolves RUSTSEC-2024-0436). `paste` was used only at compile time by the `embed_spa!` macro; no API or behavior change.
+
 ## [0.6.0] - 2026-10-17
 
 ### Changed
